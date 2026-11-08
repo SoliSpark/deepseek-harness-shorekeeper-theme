@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     const LOGO_VIEWBOX = '0 0 996.38452 822';
 
     /** Playback speed of the source clip. */
-    const RATE = 1.25;
+    const RATE = 1.18;
     /** Video time of the hard cut from closed eyes to the awakened close-up. */
     const CUT_AT = 3.83;
     /** Video time where the outro fade begins. */
@@ -194,9 +194,18 @@ window.__ModuleLoader__.load({
       return host;
     }
 
+    let splashActive = false;
+
     function playVideo(video) {
       const attempt = video.play();
       if (attempt && typeof attempt.catch === 'function') attempt.catch(() => { /* autoplay blocked */ });
+    }
+
+    function setBackdropPlayback(playing) {
+      const video = document.querySelector('.dshsk-bg video');
+      if (!video) return;
+      if (playing) playVideo(video);
+      else { try { video.pause(); } catch (error) { /* detached */ } }
     }
 
     function buildDefaultMedia(frame) {
@@ -204,12 +213,12 @@ window.__ModuleLoader__.load({
       video.className = 'dshsk-bg-media';
       video.src = LOOP_URI;
       video.muted = true;
-      video.autoplay = true;
+      video.autoplay = false;
       video.loop = true;
       video.playsInline = true;
       video.setAttribute('aria-hidden', 'true');
       frame.appendChild(video);
-      playVideo(video);
+      if (!splashActive) playVideo(video);
     }
 
     function renderBackdrop() {      if (!settings.enabled) {
@@ -238,7 +247,7 @@ window.__ModuleLoader__.load({
           video.autoplay = true;
           video.playsInline = true;
           backdropFrame.appendChild(video);
-          playVideo(video);
+          if (!splashActive) playVideo(video);
         } else {
           buildDefaultMedia(backdropFrame);
         }
@@ -255,6 +264,27 @@ window.__ModuleLoader__.load({
        gap (and the shell's boot card) so no chat frame flashes through. */
     let bootVeil = null;
     let bootVeilTimer = 0;
+    let workspaceRevealTimer = 0;
+
+    function hideWorkspaceUntilReady() {
+      document.documentElement.classList.add('dshsk-booting');
+      if (workspaceRevealTimer) window.clearTimeout(workspaceRevealTimer);
+      workspaceRevealTimer = window.setTimeout(showWorkspace, 25000);
+    }
+
+    function showWorkspace() {
+      if (workspaceRevealTimer) { window.clearTimeout(workspaceRevealTimer); workspaceRevealTimer = 0; }
+      document.documentElement.classList.remove('dshsk-booting');
+      document.documentElement.classList.add('dshsk-ready');
+    }
+
+    function removePrebootVeil() {
+      const node = document.getElementById('dshsk-preboot');
+      if (!node || node.dataset.dshskOut === 'true') return;
+      node.dataset.dshskOut = 'true';
+      node.classList.add('is-out');
+      window.setTimeout(() => { if (node.parentNode) node.parentNode.removeChild(node); }, 460);
+    }
 
     function showBootVeil() {
       if (bootVeil || !document.body) return;
@@ -268,55 +298,12 @@ window.__ModuleLoader__.load({
 
     function hideBootVeil() {
       if (bootVeilTimer) { window.clearTimeout(bootVeilTimer); bootVeilTimer = 0; }
+      removePrebootVeil();
       if (!bootVeil) return;
       const node = bootVeil;
       bootVeil = null;
       node.classList.add('is-out');
       window.setTimeout(() => { if (node.parentNode) node.parentNode.removeChild(node); }, 480);
-    }
-
-    // ------------------------------------------------------- splash stage gate
-
-    /* The workbench keeps booting behind the film, but stays invisible: this
-       opaque curtain sits directly under the splash (and above every other
-       layer, including the desktop menu strip) so no workbench frame can leak
-       through the intro fade or the outro dissolve. It fades away only after
-       the whole film has finished and is then removed. */
-    let stageCurtain = null;
-    let stageTimer = 0;
-    let stageRemovalTimer = 0;
-
-    function ensureStageCurtain() {
-      if (stageCurtain && stageCurtain.isConnected) return stageCurtain;
-      const curtain = document.createElement('div');
-      curtain.className = 'dshsk-stage-curtain';
-      curtain.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(curtain);
-      stageCurtain = curtain;
-      return curtain;
-    }
-
-    function beginSplashStage() {
-      if (!document.body) return;
-      const curtain = ensureStageCurtain();
-      curtain.classList.remove('is-out');
-      if (stageRemovalTimer) { window.clearTimeout(stageRemovalTimer); stageRemovalTimer = 0; }
-      if (stageTimer) window.clearTimeout(stageTimer);
-      /* Safety net: never keep the workbench hidden if the film never ends. */
-      stageTimer = window.setTimeout(endSplashStage, 18000);
-    }
-
-    function endSplashStage() {
-      if (stageTimer) { window.clearTimeout(stageTimer); stageTimer = 0; }
-      const curtain = stageCurtain;
-      if (!curtain) return;
-      curtain.classList.add('is-out');
-      if (stageRemovalTimer) window.clearTimeout(stageRemovalTimer);
-      stageRemovalTimer = window.setTimeout(() => {
-        stageRemovalTimer = 0;
-        if (curtain.parentNode) curtain.parentNode.removeChild(curtain);
-        if (stageCurtain === curtain) stageCurtain = null;
-      }, 900);
     }
 
     // ---------------------------------------------------------- theme tokens
@@ -334,14 +321,8 @@ window.__ModuleLoader__.load({
       tokenDispose = themeService.overrideTokens('dsh-shorekeeper-theme', {
         '--dsw-alias-bg-base': { light: light(a + 0.06), dark: dark(a) },
         '--dsw-specific-sidebar-fill': { light: light(a + 0.08), dark: dark(a + 0.05) },
-        /* Content surfaces (composer, cards, hover previews) are opaque in DSH's
-           own design. Keep them a touch of glass so they do not glare as flat
-           white, but keep enough body that text behind stays unreadable. */
         '--dsw-specific-input-major': { light: light(0.88), dark: dark(0.82) },
         '--dsw-alias-bg-layer-1': { light: light(0.92), dark: dark(0.87) },
-        /* The rest of DSH's "white" surfaces (menus, settings cards, floating
-           buttons, sheets) get the same glass treatment so no single patch of
-           the UI stays a flat opaque white next to the translucent panels. */
         '--dsw-alias-bg-layer-2': { light: light(0.94), dark: dark(0.9) },
         '--dsw-alias-bg-layer-3': { light: light(0.94), dark: dark(0.9) },
         '--dsw-alias-bg-overlay': { light: light(0.92), dark: dark(0.88) },
@@ -350,19 +331,12 @@ window.__ModuleLoader__.load({
         '--dsw-alias-button-elevated-fill': { light: light(0.9), dark: dark(0.88) },
         '--dsw-alias-button-floating-fill': { light: light(0.9), dark: dark(0.88) },
         '--dsw-menu-surface-fill': { light: light(0.9), dark: dark(0.88) },
-        /* Markdown code surfaces: DSH paints them with solid whites (code block,
-           its banner, inline code chips, citations). Over glass those read as
-           bright patches, so keep a light tint of the theme background instead. */
         '--dsw-alias-markdown-code-block': { light: light(0.42), dark: dark(0.38) },
         '--dsw-alias-markdown-code-block-banner': { light: light(0.52), dark: dark(0.46) },
         '--dsw-alias-markdown-inline-code': { light: light(0.38), dark: dark(0.34) },
         '--dsw-alias-markdown-citation': { light: light(0.48), dark: dark(0.42) },
         '--dsw-alias-markdown-code-segment-selected': { light: light(0.45), dark: dark(0.4) },
         '--dsw-alias-markdown-code-segment-unselected': { light: light(0.32), dark: dark(0.28) },
-        /* Blue accent text (view tabs, links, file chips, "open repo" links) is
-           the DSH accent blue; over the translucent panels its stock #4176e6
-           loses contrast. Darken it in light mode / lighten it in dark mode.
-           The composer keeps the stock accent (reset below). */
         '--dsw-alias-link': { light: '#1c3fbf', dark: '#a3c4ff' },
         '--dsw-alias-state-business-primary': { light: '#1c3fbf', dark: '#a3c4ff' },
         '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#1c3fbf', dark: '#a3c4ff' },
@@ -371,29 +345,19 @@ window.__ModuleLoader__.load({
 
     function syncDocument() {
       const html = document.documentElement;
-      if (settings.enabled) {
-        html.classList.add(DOC_CLASS);
-      } else {
-        html.classList.remove(DOC_CLASS);
-      }
+      if (settings.enabled) html.classList.add(DOC_CLASS);
+      else html.classList.remove(DOC_CLASS);
     }
 
-    /* ------------------------------------------------------ liquid chrome bits
-       Two things DSH styles for an opaque shell that need a hand over glass:
-       1. the sidebar's primary "new session" button (tag it, then CSS does the
-          liquid-glass look);
-       2. the full-width composer seat, which some shells leave with a frosted
-          backdrop that reads as a blur band around the input.
-       Both are re-checked on a slow interval because the shell can re-render. */
 
+
+    /* ------------------------------------------------------ liquid chrome bits */
     let chromeTimer = 0;
     const liquidButtons = new Set();
+    const seatBlurInlines = new Map();
 
     function tagLiquidButtons() {
       if (!settings.enabled) return;
-      /* The sidebar's new-session control is a CSS-module class ending in
-         `_newSession` (e.g. wtg9ga_newSession); tag its root element so the
-         liquid-glass rules apply without depending on the hash prefix. */
       const byClass = document.querySelectorAll('[class*="_newSession"]');
       for (const el of byClass) {
         let match = false;
@@ -405,7 +369,6 @@ window.__ModuleLoader__.load({
         el.classList.add('dshsk-liquid');
         liquidButtons.add(el);
       }
-      /* Fallback for shells that label the control as a plain button. */
       const candidates = document.querySelectorAll('button, [role="button"], a');
       for (const el of candidates) {
         const text = String(el.textContent || '').trim();
@@ -415,8 +378,6 @@ window.__ModuleLoader__.load({
         liquidButtons.add(el);
       }
     }
-
-    const seatBlurInlines = new Map();
 
     function clearComposerSeatBlur() {
       if (!settings.enabled) return;
@@ -487,7 +448,48 @@ window.__ModuleLoader__.load({
     }
 
 
+
+    /* The stage curtain sits under the splash and above every other layer, so the
+       workbench stays hidden while the DSH loading UI itself is left untouched. */
+    let stageCurtain = null;
+    let stageTimer = 0;
+    let stageRemovalTimer = 0;
+
+    function ensureStageCurtain() {
+      if (stageCurtain && stageCurtain.isConnected) return stageCurtain;
+      const curtain = document.createElement('div');
+      curtain.className = 'dshsk-stage-curtain';
+      curtain.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(curtain);
+      stageCurtain = curtain;
+      return curtain;
+    }
+
+    function beginSplashStage() {
+      if (!document.body) return;
+      const curtain = ensureStageCurtain();
+      curtain.classList.remove('is-out');
+      if (stageRemovalTimer) { window.clearTimeout(stageRemovalTimer); stageRemovalTimer = 0; }
+      if (stageTimer) window.clearTimeout(stageTimer);
+      stageTimer = window.setTimeout(endSplashStage, 18000);
+    }
+
+    function endSplashStage() {
+      if (stageTimer) { window.clearTimeout(stageTimer); stageTimer = 0; }
+      const curtain = stageCurtain;
+      if (!curtain) return;
+      curtain.classList.add('is-out');
+      if (stageRemovalTimer) window.clearTimeout(stageRemovalTimer);
+      stageRemovalTimer = window.setTimeout(() => {
+        stageRemovalTimer = 0;
+        if (curtain.parentNode) curtain.parentNode.removeChild(curtain);
+        if (stageCurtain === curtain) stageCurtain = null;
+      }, 900);
+    }
+
     // ---------------------------------------------------------------- splash
+
+
 
     let splashNonce = 0;
     const splashListeners = new Set();
@@ -515,44 +517,28 @@ window.__ModuleLoader__.load({
   user-select: none;
   cursor: default;
   z-index: 2147483000;
-  animation: dshsk-root-in 700ms ease both;
 }
 .dshsk-inner { position: absolute; inset: 0; transition: opacity 380ms ease; }
-.dshsk-root[data-closing="true"]:not([data-outro="true"]) .dshsk-inner { opacity: 0; }
-/* Outro hand-off: the headline sinks down and dissolves while the particle canvas
-   blooms in, instead of the whole text block blinking out at once. */
-.dshsk-root[data-outro="true"] .dshsk-copy {
-  animation: dshsk-copy-sink 900ms cubic-bezier(.4, 0, .7, 1) 60ms both;
-}
+.dshsk-root[data-closing="true"] .dshsk-inner { opacity: 0; }
 .dshsk-root[data-closing="true"] { pointer-events: none; }
 .dshsk-root[data-closing="true"]:not([data-outro="true"]) {
   opacity: 0;
   transition: opacity 620ms ease;
 }
-.dshsk-dissolve {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
+.dshsk-dissolve { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 420ms ease; }
 .dshsk-root[data-outro="true"] .dshsk-dissolve { opacity: 1; }
 .dshsk-root[data-outro="true"] { background: transparent; }
-/* Cross-fade the ending: the last frame stays on screen while the particle
-   canvas blooms in on top of it, then the frame dissolves underneath. The
-   sketch/scan overlays can drop quickly; only the film itself needs the slow
-   hand-off so nothing "snaps" into particles. */
 .dshsk-root[data-outro="true"] .dshsk-sketch-wrap,
 .dshsk-root[data-outro="true"] .dshsk-tint,
 .dshsk-root[data-outro="true"] .dshsk-flash,
 .dshsk-root[data-outro="true"] .dshsk-scan,
 .dshsk-root[data-outro="true"] .dshsk-particles,
 .dshsk-root[data-outro="true"] .dshsk-brackets { opacity: 0; transition: opacity 240ms ease; }
-.dshsk-root[data-outro="true"] .dshsk-media {
-  opacity: 0;
-  transition: opacity 1500ms cubic-bezier(.4, 0, .2, 1) 60ms;
+.dshsk-root[data-outro="true"] .dshsk-media { opacity: 0; transition: opacity 1500ms cubic-bezier(.4, 0, .2, 1) 60ms; }
+.dshsk-root[data-outro="true"] .dshsk-copy { animation: dshsk-copy-sink 900ms cubic-bezier(.4, 0, .7, 1) 60ms both; }
+@keyframes dshsk-copy-sink {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(64px); filter: blur(3px); }
 }
 
 .dshsk-media { position: absolute; inset: 0; overflow: hidden; background: #02040a; }
@@ -563,12 +549,12 @@ window.__ModuleLoader__.load({
   height: 104%;
   object-fit: cover;
   object-position: 62% 48%;
-  filter: contrast(1.15) saturate(1.06) brightness(.98);
+  filter: none;
   transition: filter 1500ms ease;
   animation: dshsk-drift 11s cubic-bezier(.2,.4,.3,1) both;
   will-change: transform, filter;
 }
-.dshsk-root[data-phase="awake"] .dshsk-video { filter: contrast(1.12) saturate(1.08) brightness(1); }
+.dshsk-root[data-phase="awake"] .dshsk-video { filter: contrast(1.15) saturate(1.06) brightness(.98); }
 
 .dshsk-sketch-wrap {
   position: absolute;
@@ -604,20 +590,7 @@ window.__ModuleLoader__.load({
   inset: 0;
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 0 6px rgba(110,225,255,.55));
 }
-.dshsk-stroke {
-  fill: none;
-  stroke: url(#dshsk-stroke-grad);
-  stroke-width: 1.15;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: var(--len);
-  stroke-dashoffset: var(--len);
-  animation: dshsk-stroke var(--dur) linear var(--delay) both;
-}
-.dshsk-root[data-reduced="true"] .dshsk-stroke { animation: none; stroke-dashoffset: 0; }
-
 .dshsk-tint {
   position: absolute;
   inset: 0;
@@ -869,21 +842,18 @@ window.__ModuleLoader__.load({
   .dshsk-faction-en, .dshsk-meta { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dshsk-video, .dshsk-sketch, .dshsk-stroke, .dshsk-flash, .dshsk-scan, .dshsk-brackets i,
+  .dshsk-video, .dshsk-sketch, .dshsk-flash, .dshsk-scan, .dshsk-brackets i,
   .dshsk-brand, .dshsk-awake, .dshsk-welcome, .dshsk-char, .dshsk-sub, .dshsk-foot,
   .dshsk-logo-part, .dshsk-sketch-wrap, .dshsk-root,
   .dshsk-brand, .dshsk-awake, .dshsk-welcome, .dshsk-char, .dshsk-sub, .dshsk-foot { opacity: 1; transform: none; filter: none; }
   .dshsk-logo-part { opacity: 1; transform: none; }
   .dshsk-faction { opacity: 1; transform: none; }
-  .dshsk-stroke { stroke-dashoffset: 0; }
 }
 
-@keyframes dshsk-root-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dshsk-drift {
   from { transform: scale(1.055) translate3d(0, 0, 0); }
   to { transform: scale(1) translate3d(0, -1.1%, 0); }
 }
-@keyframes dshsk-stroke { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
 @keyframes dshsk-flash {
   0% { opacity: 0; }
   10% { opacity: .92; }
@@ -900,10 +870,6 @@ window.__ModuleLoader__.load({
 @keyframes dshsk-bracket-in { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: scale(1); } }
 @keyframes dshsk-rise-in { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
 @keyframes dshsk-sink-out { from { opacity: 1; } to { opacity: 0; transform: translateY(26px); } }
-@keyframes dshsk-copy-sink {
-  from { opacity: 1; transform: translateY(0); filter: blur(0); }
-  to { opacity: 0; transform: translateY(64px); filter: blur(3px); }
-}
 @keyframes dshsk-fly-in { from { opacity: 0; transform: translateX(64px); } to { opacity: 1; transform: none; } }
 @keyframes dshsk-push-in {
   0% { opacity: 0; transform: translateX(70px); filter: blur(4px); }
@@ -916,10 +882,10 @@ window.__ModuleLoader__.load({
 `;
 
     const PAGE_CSS = `
-html.${DOC_CLASS} { background: #05080f !important; }
-html.${DOC_CLASS} body { background: transparent !important; }
-html.${DOC_CLASS} #root { position: relative; background: transparent !important; }
-.dshsk-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #05080f; }
+html.${DOC_CLASS}, html.${DOC_CLASS} body { background: #05080f !important; }
+html.${DOC_CLASS} #root { position: relative; z-index: 1; background: transparent !important; }
+html.dshsk-booting #root { visibility: hidden !important; }
+.dshsk-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #05080f; }
 .dshsk-bg-frame { position: absolute; inset: -3%; width: 106%; height: 106%; will-change: filter; }
 .dshsk-bg-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 42%; }
 .dshsk-bg-scrim { position: absolute; inset: 0; background: #04070d; opacity: .45; }
@@ -928,67 +894,6 @@ html.${DOC_CLASS} #root { position: relative; background: transparent !important
   background:
     radial-gradient(120% 100% at 50% 40%, rgba(3,6,11,0) 40%, rgba(3,6,11,.55) 100%),
     linear-gradient(180deg, rgba(3,6,11,.45), rgba(3,6,11,0) 26%, rgba(3,6,11,0) 72%, rgba(3,6,11,.5));
-}
-/* right-sidebar guide cards: keep DSH native fills (same as the "more tools"
-   card); only neutralise the inner ghost button of the terminal card so its
-   hover is drawn by the outer entry, exactly like every other card. */
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button,
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:hover,
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:focus-visible {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* code-block sticky banner: give the label bar an opaque glass fill so the
-   code text scrolling underneath no longer shows through it. */
-html.${DOC_CLASS} [class*="_bannerWrap_"] {
-  background-color: rgba(248, 251, 255, 0.92) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  backdrop-filter: blur(14px) saturate(1.1);
-}
-html.${DOC_CLASS}:has(body[data-ds-dark-theme]) [class*="_bannerWrap_"] {
-  background-color: rgba(14, 19, 28, 0.92) !important;
-}
-/* platform pages (top-up / usage): the overlay is a portal over the app and its
-   translucent background lets the app chrome show through around the native web
-   view. Give it a paper surface so the 48px return bar reads as part of the page. */
-html.${DOC_CLASS} {
-  --dshsk-platform-paper: rgba(251, 252, 255, 0.985);
-}
-html.${DOC_CLASS}:has(body[data-ds-dark-theme]) {
-  --dshsk-platform-paper: #f7f9fc;
-}
-html.${DOC_CLASS} .MKE-pW_overlay {
-  background: var(--dshsk-platform-paper) !important;
-}
-html.${DOC_CLASS} .MKE-pW_header {
-  background: transparent !important;
-  border-bottom-color: rgba(15, 23, 42, 0.1) !important;
-}
-html.${DOC_CLASS} .MKE-pW_back,
-html.${DOC_CLASS} .MKE-pW_failure {
-  color: #3b4657 !important;
-}
-html.${DOC_CLASS} .MKE-pW_status {
-  background: transparent !important;
-}
-
-/* immersive top chrome: the Windows titlebar strip and the native caption
-   overlay both paint --dsw-specific-sidebar-fill, which hides the theme
-   backdrop. Let them be transparent so the animated background shows
-   through, while keeping the system buttons usable. */
-html.${DOC_CLASS}[data-windows-titlebar] .mP3x-q_frame:before {
-  background: var(--dsw-alias-bg-base) !important;
-}
-html.${DOC_CLASS} span[style*="--dsw-specific-sidebar-fill"] {
-  background-color: rgba(0, 0, 0, 0) !important;
-}
-
-/* every guide entry (including the terminal card, whose hover used to be
-   painted by its inner ghost button) shares the same hover fill token. */
-html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
-  background-color: var(--dsw-alias-interactive-bg-hover) !important;
 }
 .dshsk-boot-veil {
   position: fixed;
@@ -999,17 +904,6 @@ html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
   transition: opacity 420ms ease;
 }
 .dshsk-boot-veil.is-out { opacity: 0; pointer-events: none; }
-
-.dshsk-stage-curtain {
-  position: fixed;
-  inset: 0;
-  z-index: 2147482999;
-  background: #02040a;
-  opacity: 1;
-  transition: opacity 760ms ease;
-  pointer-events: none;
-}
-.dshsk-stage-curtain.is-out { opacity: 0; }
 
 .dshsk-page {
   height: 100%;
@@ -1104,6 +998,88 @@ html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
   .dshsk-hero { flex-wrap: wrap; }
 }
 
+
+/* right-sidebar guide cards: keep DSH native fills (same as the "more tools"
+   card); only neutralise the inner ghost button of the terminal card so its
+   hover is drawn by the outer entry, exactly like every other card. */
+html.${DOC_CLASS} [data-sidebar-right-guide-entry] button,
+html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:hover,
+html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:focus-visible {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* code-block sticky banner: give the label bar an opaque glass fill so the
+   code text scrolling underneath no longer shows through it. */
+html.${DOC_CLASS} [class*="_bannerWrap_"] {
+  background-color: rgba(248, 251, 255, 0.92) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+html.${DOC_CLASS}:has(body[data-ds-dark-theme]) [class*="_bannerWrap_"] {
+  background-color: rgba(14, 19, 28, 0.92) !important;
+}
+/* platform pages (top-up / usage): the overlay is a portal over the app and its
+   translucent background lets the app chrome show through around the native web
+   view. Give it a paper surface so the 48px return bar reads as part of the page. */
+html.${DOC_CLASS} {
+  --dshsk-platform-paper: rgba(251, 252, 255, 0.985);
+}
+html.${DOC_CLASS}:has(body[data-ds-dark-theme]) {
+  --dshsk-platform-paper: #f7f9fc;
+}
+html.${DOC_CLASS} .MKE-pW_overlay {
+  background: var(--dshsk-platform-paper) !important;
+}
+html.${DOC_CLASS} .MKE-pW_header {
+  background: transparent !important;
+  border-bottom-color: rgba(15, 23, 42, 0.1) !important;
+}
+html.${DOC_CLASS} .MKE-pW_back,
+html.${DOC_CLASS} .MKE-pW_failure {
+  color: #3b4657 !important;
+}
+html.${DOC_CLASS} .MKE-pW_status {
+  background: transparent !important;
+}
+
+/* immersive top chrome: the Windows titlebar strip and the native caption
+   overlay both paint --dsw-specific-sidebar-fill, which hides the theme
+   backdrop. Let them be transparent so the animated background shows
+   through, while keeping the system buttons usable. */
+html.${DOC_CLASS}[data-windows-titlebar] .mP3x-q_frame:before {
+  background: var(--dsw-alias-bg-base) !important;
+}
+html.${DOC_CLASS} span[style*="--dsw-specific-sidebar-fill"] {
+  background-color: rgba(0, 0, 0, 0) !important;
+}
+
+/* every guide entry (including the terminal card, whose hover used to be
+   painted by its inner ghost button) shares the same hover fill token. */
+html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover) !important;
+}
+.dshsk-boot-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483001;
+  background: #02040a;
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+.dshsk-boot-veil.is-out { opacity: 0; pointer-events: none; }
+
+.dshsk-stage-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482999;
+  background: #02040a;
+  opacity: 1;
+  transition: opacity 760ms ease;
+  pointer-events: none;
+}
+.dshsk-stage-curtain.is-out { opacity: 0; }
 /* --- workbench polish: chrome continuity, bottom scrims, label contrast --- */
 
 /* The Windows shell rounds the centre column's top-left corner (16px). Over an
@@ -1312,7 +1288,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
       const now = () => performance.now();
 
       const size = () => {
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        dpr = Math.min(window.devicePixelRatio || 1, 1.5);
         width = host.clientWidth || window.innerWidth;
         height = host.clientHeight || window.innerHeight;
         canvas.width = Math.max(1, Math.round(width * dpr));
@@ -1340,8 +1316,11 @@ html.${DOC_CLASS} [data-disclosure-header] {
         }
       };
 
+      let lastDraw = 0;
       const step = () => {
         const t = now();
+        if (t - lastDraw < 33) { raf = requestAnimationFrame(step); return; }
+        lastDraw = t;
         ctx.clearRect(0, 0, width, height);
         ctx.globalCompositeOperation = 'lighter';
         for (let i = motes.length - 1; i >= 0; i -= 1) {
@@ -1399,6 +1378,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
       const barRef = useRef(null);
       const canvasRef = useRef(null);
       const dissolveRef = useRef(null);
+      const sketchRef = useRef(null);
       const rootRef = useRef(null);
       const particlesRef = useRef(null);
       const timerRef = useRef(0);
@@ -1413,6 +1393,10 @@ html.${DOC_CLASS} [data-disclosure-header] {
       const end = useCallback((immediate) => {
         if (closingRef.current) return;
         closingRef.current = true;
+        endSplashStage();
+        splashActive = false;
+        setBackdropPlayback(true);
+        showWorkspace();
         if (!immediate) {
           setOutro(true);
         }
@@ -1434,7 +1418,12 @@ html.${DOC_CLASS} [data-disclosure-header] {
         let prefersReduced = false;
         try { prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (error) { prefersReduced = false; }
         setReduced(prefersReduced);
-        if (canvas && root && !prefersReduced) particlesRef.current = drawParticles(canvas, root);
+        let particleTimer = 0;
+        if (canvas && root && !prefersReduced) {
+          particleTimer = window.setTimeout(() => {
+            particlesRef.current = drawParticles(canvas, root);
+          }, 900);
+        }
 
         const play = () => {
           if (!video) return;
@@ -1456,8 +1445,8 @@ html.${DOC_CLASS} [data-disclosure-header] {
 
         let raf = 0;
         const tick = () => {
-          const viaVideo = video && video.readyState >= 2 && !video.paused && video.currentTime > 0.02;
           const elapsed = (performance.now() - startedRef.current) / 1000;
+          const viaVideo = video && video.readyState >= 2 && !video.paused && video.currentTime > 0.02;
           const time = viaVideo ? video.currentTime : elapsed * RATE;
           if (phaseRef.current === 'intro' && time >= CUT_AT) {
             phaseRef.current = 'awake';
@@ -1477,11 +1466,181 @@ html.${DOC_CLASS} [data-disclosure-header] {
         return () => {
           cancelAnimationFrame(raf);
           window.clearTimeout(timerRef.current);
+          window.clearTimeout(particleTimer);
           window.removeEventListener('keydown', onKey, true);
           if (particlesRef.current) { particlesRef.current.dispose(); particlesRef.current = null; }
         };
       }, [end]);
 
+
+      useEffect(() => {
+        const canvas = sketchRef.current;
+        if (!canvas) return undefined;
+        const ctx = canvas.getContext('2d');
+        let W = 0;
+        let H = 0;
+        let scale = 1;
+        let ox = 0;
+        let oy = 0;
+        let gradient = null;
+        let strokes = [];
+        let raf = 0;
+        let started = 0;
+        let total = 0;
+        let reduce = false;
+        try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (error) { reduce = false; }
+
+        const polylineRange = (stroke, from, to) => {
+          ctx.beginPath();
+          let acc = 0;
+          let begun = false;
+          for (const seg of stroke.segs) {
+            const [ax, ay, bx, by, length] = seg;
+            const s0 = acc;
+            const s1 = acc + length;
+            acc = s1;
+            if (s1 <= from) continue;
+            if (s0 >= to) break;
+            const a = Math.max(0, Math.min(1, (from - s0) / length));
+            const b = Math.max(0, Math.min(1, (to - s0) / length));
+            const x0 = ax + (bx - ax) * a;
+            const y0 = ay + (by - ay) * a;
+            const x1 = ax + (bx - ax) * b;
+            const y1 = ay + (by - ay) * b;
+            if (!begun) { ctx.moveTo(x0, y0); begun = true; }
+            ctx.lineTo(x1, y1);
+          }
+          if (begun) ctx.stroke();
+        };
+
+        const paint = (stroke, from, to) => {
+          if (to <= from) return;
+          ctx.strokeStyle = gradient;
+          ctx.globalAlpha = 0.07;
+          ctx.lineWidth = 3.8;
+          polylineRange(stroke, from, to);
+          ctx.globalAlpha = 0.95;
+          ctx.lineWidth = 1.15;
+          polylineRange(stroke, from, to);
+        };
+
+        const build = () => {
+          W = canvas.clientWidth || window.innerWidth;
+          H = canvas.clientHeight || window.innerHeight;
+          const dpr = Math.min(window.devicePixelRatio || 1, 1.2);
+          canvas.width = Math.max(1, Math.round(W * dpr));
+          canvas.height = Math.max(1, Math.round(H * dpr));
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          scale = Math.max(W / SKETCH_PATHS.w, H / SKETCH_PATHS.h);
+          ox = (W - SKETCH_PATHS.w * scale) / 2;
+          oy = (H - SKETCH_PATHS.h * scale) / 2;
+          gradient = ctx.createLinearGradient(ox, oy, ox + SKETCH_PATHS.w * scale, oy + SKETCH_PATHS.h * scale);
+          gradient.addColorStop(0, '#eafcff');
+          gradient.addColorStop(0.45, '#8fe9ff');
+          gradient.addColorStop(1, '#4f8cff');
+          strokes = SKETCH_PATHS.paths.map((path) => {
+            const pts = path.pts.map((pt) => [ox + pt[0] * scale, oy + pt[1] * scale]);
+            const segs = [];
+            for (let i = 1; i < pts.length; i += 1) {
+              const ax = pts[i - 1][0], ay = pts[i - 1][1];
+              const bx = pts[i][0], by = pts[i][1];
+              const length = Math.hypot(bx - ax, by - ay);
+              if (length > 0.01) segs.push([ax, ay, bx, by, length]);
+            }
+            return { segs, grow: path.len * scale, delay: path.delay, dur: path.dur, drawn: 0 };
+          });
+          total = Math.max(...SKETCH_PATHS.paths.map((path) => path.delay + path.dur)) + 0.1;
+          ctx.clearRect(0, 0, W, H);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+        };
+
+        const advance = (time) => {
+          ctx.beginPath();
+          let any = false;
+          for (const stroke of strokes) {
+            if (stroke.drawn >= stroke.grow) continue;
+            const progress = Math.min(1, Math.max(0, (time - stroke.delay) / stroke.dur));
+            const target = progress * stroke.grow;
+            if (target <= stroke.drawn) continue;
+            let acc = 0;
+            let begun = false;
+            for (const seg of stroke.segs) {
+              const [ax, ay, bx, by, length] = seg;
+              const s0 = acc;
+              const s1 = acc + length;
+              acc = s1;
+              if (s1 <= stroke.drawn) continue;
+              if (s0 >= target) break;
+              const a = Math.max(0, Math.min(1, (stroke.drawn - s0) / length));
+              const b = Math.max(0, Math.min(1, (target - s0) / length));
+              if (!begun) { ctx.moveTo(ax + (bx - ax) * a, ay + (by - ay) * a); begun = true; }
+              ctx.lineTo(ax + (bx - ax) * b, ay + (by - ay) * b);
+            }
+            stroke.drawn = target;
+            any = true;
+          }
+          if (!any) return;
+          ctx.strokeStyle = gradient;
+          ctx.globalAlpha = 0.07;
+          ctx.lineWidth = 3.8;
+          ctx.stroke();
+          ctx.globalAlpha = 0.95;
+          ctx.lineWidth = 1.15;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        };
+
+        build();
+        if (reduce) {
+          for (const stroke of strokes) {
+            paint(stroke, 0, stroke.grow);
+            stroke.drawn = stroke.grow;
+          }
+        } else {
+          const startLoop = () => {
+            let clock = -0.25;
+            let lastNow = 0;
+            const frame = () => {
+              const nowFrame = performance.now();
+              if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
+              lastNow = nowFrame;
+              advance(clock);
+              if (clock < total) raf = requestAnimationFrame(frame);
+            };
+            raf = requestAnimationFrame(frame);
+          };
+          startLoop();
+        }
+
+        const onResize = () => {
+          cancelAnimationFrame(raf);
+          build();
+          started = 0;
+          if (reduce) {
+            for (const stroke of strokes) { paint(stroke, 0, stroke.grow); stroke.drawn = stroke.grow; }
+          } else {
+            const startLoop = () => {
+              let clock = -0.25;
+              let lastNow = 0;
+              const frame = () => {
+                const nowFrame = performance.now();
+                if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
+                lastNow = nowFrame;
+                advance(clock);
+                if (clock < total) raf = requestAnimationFrame(frame);
+              };
+              raf = requestAnimationFrame(frame);
+            };
+            startLoop();
+          }
+        };
+        window.addEventListener('resize', onResize);
+        return () => {
+          cancelAnimationFrame(raf);
+          window.removeEventListener('resize', onResize);
+        };
+      }, []);
 
       useEffect(() => {
         if (!outro) return undefined;
@@ -1509,16 +1668,16 @@ html.${DOC_CLASS} [data-disclosure-header] {
             const dh = vh * scale;
             octx.drawImage(video, (sw - dw) / 2, (sh - dh) / 2, dw, dh);
             const data = octx.getImageData(0, 0, sw, sh).data;
-            for (let y = 0; y < sh; y += 2) {
-              for (let x = 0; x < sw; x += 2) {
-                if (Math.random() < 0.18) continue;
+            for (let y = 0; y < sh; y += 3) {
+              for (let x = 0; x < sw; x += 3) {
+                if (Math.random() < 0.28) continue;
                 const i = (y * sw + x) * 4;
                 const r = data[i], g = data[i + 1], b = data[i + 2];
                 if (r + g + b < 26) continue;
                 particles.push({
                   sx: x / sw * W,
                   sy: y / sh * H,
-                  size: 1.2 + Math.random() * 2.4,
+                  size: 1 + Math.random() * 2.2,
                   col: r + ',' + g + ',' + b,
                   delay: Math.random() * 0.16,
                   wobble: Math.random() * 6.283,
@@ -1544,16 +1703,11 @@ html.${DOC_CLASS} [data-disclosure-header] {
         const easeOut = (value) => 1 - Math.pow(1 - value, 3);
         const frame = () => {
           const t = (performance.now() - started) / 1000;
-          /* Bloom the whole field in so the frame's image dissolves into dots
-             instead of the dots appearing at full brightness at once. */
-          const bloomProgress = Math.min(1, t / 0.3);
-          const bloom = bloomProgress * bloomProgress * (3 - 2 * bloomProgress);
           ctx.clearRect(0, 0, W, H);
           ctx.globalCompositeOperation = 'lighter';
           for (const particle of particles) {
             const local = t - particle.delay;
             if (local <= 0) continue;
-            const rise = Math.min(1, local / 0.24);
             const scatter = easeOut(Math.min(1, local / 0.55));
             let x = particle.sx + particle.vx * scatter * 0.8 + Math.sin(local * 3.4 + particle.wobble) * 16 * scatter;
             let y = particle.sy + particle.vy * scatter * 0.8 + 30 * scatter * scatter;
@@ -1567,7 +1721,6 @@ html.${DOC_CLASS} [data-disclosure-header] {
             } else {
               alpha = 0.92 * (1 - Math.max(0, local - 0.42) * 0.5);
             }
-            alpha *= rise * bloom;
             if (alpha <= 0.01) continue;
             ctx.fillStyle = 'rgba(' + particle.col + ',' + alpha.toFixed(3) + ')';
             ctx.beginPath();
@@ -1608,32 +1761,11 @@ html.${DOC_CLASS} [data-disclosure-header] {
           })),
         h('div', { className: 'dshsk-sketch-wrap', 'aria-hidden': true },
           h('div', { className: 'dshsk-sketch-bg' }),
-          h('svg', {
+          h('canvas', {
+            ref: sketchRef,
             className: 'dshsk-sketch',
-            viewBox: '0 0 1600 900',
-            preserveAspectRatio: 'xMidYMid slice',
             'aria-hidden': true,
-            focusable: false,
-          },
-            h('defs', null,
-              h('linearGradient', {
-                id: 'dshsk-stroke-grad',
-                gradientUnits: 'userSpaceOnUse',
-                x1: '0', y1: '0', x2: '1600', y2: '900',
-              },
-                h('stop', { offset: '0', stopColor: '#eafcff' }),
-                h('stop', { offset: '0.45', stopColor: '#8fe9ff' }),
-                h('stop', { offset: '1', stopColor: '#4f8cff' }))),
-            SKETCH_PATHS.paths.map((path, index) => h('path', {
-              key: index,
-              className: 'dshsk-stroke',
-              d: path.d,
-              style: {
-                '--len': path.len,
-                '--dur': path.dur + 's',
-                '--delay': path.delay + 's',
-              },
-            })))),
+          })),
         h('div', { className: 'dshsk-tint' }),
         h('div', { className: 'dshsk-flash' }),
         h('div', { className: 'dshsk-scan' }),
@@ -1685,23 +1817,12 @@ html.${DOC_CLASS} [data-disclosure-header] {
         setNonce(getSplashNonce());
         setVisible(true);
       }), []);
-      useEffect(() => {
-        if (!visible) return undefined;
-        return () => { endSplashStage(); };
-      }, [visible]);
       if (!visible) return null;
       /* The frame's overlay layer sits at z-index 20; the desktop menu strip
          lives at 1100 on <body>. A portal puts the film above both. */
-      return ReactDOM.createPortal(h(Splash, {
-        key: nonce,
-        onDone: () => {
-          /* The film (outro included) is over: fade out the curtain and let the
-             workbench appear from behind it, already fully booted. */
-          endSplashStage();
-          setVisible(false);
-        },
-      }), document.body);
+      return ReactDOM.createPortal(h(Splash, { key: nonce, onDone: () => setVisible(false) }), document.body);
     }
+
 
     function Row({ label, hint, children }) {
       return h('div', { className: 'dshsk-row' },
@@ -1875,35 +1996,21 @@ html.${DOC_CLASS} [data-disclosure-header] {
       inject: ['slots', 'theme', 'locale', 'layout'],
       apply(ctx) {
         themeService = ctx.theme;
-        /* Drop the development diagnostics left by earlier builds/patch installs. */
-        try {
-          window.localStorage.removeItem('dshsk.diag2');
-          window.localStorage.removeItem('dshsk.diag4');
-          window.localStorage.removeItem('dshsk.theme-fix1');
-        } catch (error) { /* ignore */ }
-
-        /* Hot reload can leave a previous instance's <style> and backdrop in the
-           document if that instance's teardown did not complete. Drop them first
-           so the rules below are the only ones in play. */
-        try {
-          const staleStyles = document.querySelectorAll('style[data-dsh-shorekeeper="theme"]');
-          for (const el of staleStyles) { if (el.parentNode) el.parentNode.removeChild(el); }
-        } catch (error) { /* ignore */ }
-        backdropHost = null;
-        backdropFrame = null;
-        backdropScrim = null;
-        backdropKey = '';
-        try {
-          const staleHosts = document.querySelectorAll('.dshsk-bg');
-          for (const el of staleHosts) { if (el.parentNode) el.parentNode.removeChild(el); }
-        } catch (error) { /* ignore */ }
+        /* Drop the development diagnostic left by earlier builds. */
+        try { window.localStorage.removeItem('dshsk.diag2'); } catch (error) { /* ignore */ }
 
         const css = document.createElement('style');
         css.setAttribute('data-dsh-shorekeeper', 'theme');
         css.textContent = PAGE_CSS;
         document.head.appendChild(css);
 
-        if (settings.splash) showBootVeil();
+        if (settings.splash) {
+          splashActive = true;
+        } else {
+          splashActive = false;
+          showWorkspace();
+          removePrebootVeil();
+        }
         syncVisuals();
         restoreStoredMedia();
 
@@ -1912,12 +2019,6 @@ html.${DOC_CLASS} [data-disclosure-header] {
           en: { panel: 'Shorekeeper Theme' },
         }), 'shorekeeper: dictionaries');
         const t = ctx.locale.bind(NS);
-
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-          name: 'shell.overlay',
-          id: 'shorekeeper.splash',
-          order: 40,
-        }, SplashHost));
 
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
@@ -1936,22 +2037,16 @@ html.${DOC_CLASS} [data-disclosure-header] {
         if (settings.splash) replaySplash();
 
 
-
         ctx.effect(() => () => {
-          stopChromeBits();
-          if (stageTimer) { window.clearTimeout(stageTimer); stageTimer = 0; }
-          if (stageRemovalTimer) { window.clearTimeout(stageRemovalTimer); stageRemovalTimer = 0; }
-          if (stageCurtain && stageCurtain.parentNode) stageCurtain.parentNode.removeChild(stageCurtain);
-          stageCurtain = null;
-          if (bootVeilTimer) { window.clearTimeout(bootVeilTimer); bootVeilTimer = 0; }
-          if (bootVeil && bootVeil.parentNode) bootVeil.parentNode.removeChild(bootVeil);
-          bootVeil = null;
           releaseMediaUrl();
           if (backdropHost && backdropHost.parentNode) backdropHost.parentNode.removeChild(backdropHost);
           backdropHost = null;
           backdropFrame = null;
           backdropScrim = null;
           backdropKey = '';
+          stopChromeBits();
+          if (stageCurtain && stageCurtain.parentNode) stageCurtain.parentNode.removeChild(stageCurtain);
+          stageCurtain = null;
           if (tokenDispose) { tokenDispose(); tokenDispose = null; }
           document.documentElement.classList.remove(DOC_CLASS);
           if (css.parentNode) css.parentNode.removeChild(css);
