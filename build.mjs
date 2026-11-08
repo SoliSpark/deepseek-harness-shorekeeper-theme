@@ -20,6 +20,7 @@ const film = await read('startup.mp4');
 const loop = await read('loop.mp4');
 const sketch = JSON.parse((await read('sketch_paths.json')).toString('utf8'));
 const logoParts = JSON.parse((await read('logo_parts.json')).toString('utf8'));
+const pet = template.includes("'__DSHSK_PET__'") ? await read('pet.png') : null;
 
 if (!Array.isArray(sketch.paths) || sketch.paths.length === 0) throw new Error('assets/sketch_paths.json has no paths');
 if (!Array.isArray(logoParts) || logoParts.length === 0) throw new Error('assets/logo_parts.json has no parts');
@@ -29,6 +30,9 @@ const replacements = [
   ["'__DSHSK_LOOP__'", JSON.stringify('data:video/mp4;base64,' + loop.toString('base64'))],
   ['__DSHSK_PATHS__', JSON.stringify(sketch)],
   ['__DSHSK_LOGO_PARTS__', JSON.stringify(logoParts)],
+  ...(template.includes("'__DSHSK_PET__'")
+    ? [["'__DSHSK_PET__'", JSON.stringify('data:image/png;base64,' + pet.toString('base64'))]]
+    : []),
 ];
 
 let output = template;
