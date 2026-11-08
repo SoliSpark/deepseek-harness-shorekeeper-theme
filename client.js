@@ -416,13 +416,43 @@ window.__ModuleLoader__.load({
       }
     }
 
+    const seatBlurInlines = new Map();
+
     function clearComposerSeatBlur() {
       if (!settings.enabled) return;
       const seats = document.querySelectorAll('[class*="_composerSeat"]');
       for (const seat of seats) {
+        if (!seatBlurInlines.has(seat)) {
+          seatBlurInlines.set(seat, {
+            background: seat.style.getPropertyValue('background'),
+            backgroundColor: seat.style.getPropertyValue('background-color'),
+            backgroundImage: seat.style.getPropertyValue('background-image'),
+            webkitBackdropFilter: seat.style.getPropertyValue('-webkit-backdrop-filter'),
+            backdropFilter: seat.style.getPropertyValue('backdrop-filter'),
+          });
+        }
         seat.style.setProperty('background', 'none', 'important');
         seat.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
         seat.style.setProperty('backdrop-filter', 'none', 'important');
+      }
+    }
+
+    function restoreComposerSeatBlur() {
+      for (const seat of Array.from(seatBlurInlines.keys())) {
+        if (!seat.isConnected) { seatBlurInlines.delete(seat); continue; }
+        const saved = seatBlurInlines.get(seat);
+        if (saved.background) seat.style.setProperty('background', saved.background);
+        else {
+          if (saved.backgroundColor) seat.style.setProperty('background-color', saved.backgroundColor);
+          else seat.style.removeProperty('background-color');
+          if (saved.backgroundImage) seat.style.setProperty('background-image', saved.backgroundImage);
+          else seat.style.removeProperty('background-image');
+        }
+        if (saved.webkitBackdropFilter) seat.style.setProperty('-webkit-backdrop-filter', saved.webkitBackdropFilter);
+        else seat.style.removeProperty('-webkit-backdrop-filter');
+        if (saved.backdropFilter) seat.style.setProperty('backdrop-filter', saved.backdropFilter);
+        else seat.style.removeProperty('backdrop-filter');
+        seatBlurInlines.delete(seat);
       }
     }
 
@@ -441,6 +471,7 @@ window.__ModuleLoader__.load({
 
     function stopChromeBits() {
       if (chromeTimer) { window.clearInterval(chromeTimer); chromeTimer = 0; }
+      restoreComposerSeatBlur();
       for (const el of liquidButtons) {
         if (el && el.classList) el.classList.remove('dshsk-liquid');
       }
@@ -904,6 +935,10 @@ html.${DOC_CLASS} #root { position: relative; background: transparent !important
 html.${DOC_CLASS} [data-sidebar-right-guide-entry] button,
 html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:hover,
 html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:focus-visible {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
 
 /* code-block sticky banner: give the label bar an opaque glass fill so the
    code text scrolling underneath no longer shows through it. */
@@ -946,14 +981,10 @@ html.${DOC_CLASS} .MKE-pW_status {
 html.${DOC_CLASS}[data-windows-titlebar] .mP3x-q_frame:before {
   background: transparent !important;
 }
- span[style*="--dsw-specific-sidebar-fill"] {
+html.${DOC_CLASS} span[style*="--dsw-specific-sidebar-fill"] {
   background-color: rgba(16, 24, 40, 0.35) !important;
 }
 
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
 /* every guide entry (including the terminal card, whose hover used to be
    painted by its inner ghost button) shares the same hover fill token. */
 html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {

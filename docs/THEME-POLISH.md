@@ -49,6 +49,8 @@
 - **热重载残留清理**：应用样式前先移除历史遗留的 `style[data-dsh-shorekeeper="theme"]` 与重复背景层；
   每 1200ms 对 `*_composerSeat` 写一次 inline `!important` 兜底（清除旧样式表残留的 blur / 底色）。
   这解决「输入框两侧和下方一直有模糊材质带」的历史问题。
+- **停用还原**：`stopChromeBits` 停止轮询时，把 `*_composerSeat` 上由兜底写入的内联样式
+  还原为写入前的原值（未动过的属性直接移除），关闭主题后不再残留透明覆盖。
 
 ## 五、引导卡与侧栏
 
