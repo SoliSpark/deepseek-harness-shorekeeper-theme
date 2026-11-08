@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     const LOGO_VIEWBOX = '0 0 996.38452 822';
 
     /** Playback speed of the source clip. */
-    const RATE = 1.18;
+    const RATE = 1.25;
     /** Video time of the hard cut from closed eyes to the awakened close-up. */
     const CUT_AT = 3.83;
     /** Video time where the outro fade begins. */
@@ -554,7 +554,7 @@ window.__ModuleLoader__.load({
   animation: dshsk-drift 11s cubic-bezier(.2,.4,.3,1) both;
   will-change: transform, filter;
 }
-.dshsk-root[data-phase="awake"] .dshsk-video { filter: contrast(1.15) saturate(1.06) brightness(.98); }
+.dshsk-root[data-phase="awake"] .dshsk-video { filter: contrast(1.12) saturate(1.08) brightness(1); }
 
 .dshsk-sketch-wrap {
   position: absolute;
@@ -858,7 +858,7 @@ window.__ModuleLoader__.load({
   0% { opacity: 0; }
   10% { opacity: .92; }
   34% { opacity: .28; }
-  60% { opacity: .10; }
+  60% { opacity: .1; }
   100% { opacity: 0; }
 }
 @keyframes dshsk-scan {
@@ -1312,6 +1312,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
             twinkle: 0.6 + Math.random() * 1.8,
             phase: Math.random() * Math.PI * 2,
             color: golden ? '255,214,158' : (Math.random() < 0.42 ? '127,227,255' : '224,246,255'),
+            hidden: burst,
           });
         }
       };
@@ -1340,7 +1341,8 @@ html.${DOC_CLASS} [data-disclosure-header] {
           }
           if (p.life < 0) { motes.splice(i, 1); continue; }
           const flicker = 0.55 + 0.45 * Math.sin(t * 0.001 * p.twinkle + p.phase);
-          const alpha = (p.life > 0 ? Math.max(0, p.life) : 0.5) * flicker;
+          const fade = p.hidden ? 0.02 : 1;
+          const alpha = (p.life > 0 ? Math.max(0, p.life) : 0.5) * flicker * fade;
           if (alpha <= 0.01) continue;
           ctx.beginPath();
           ctx.fillStyle = 'rgba(' + p.color + ',' + (alpha * 0.10) + ')';
@@ -1360,7 +1362,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
       const onResize = () => size();
       window.addEventListener('resize', onResize);
       return {
-        burst() { spawn(46, true); },
+        burst() { spawn(23, true); },
         dispose() {
           cancelAnimationFrame(raf);
           window.removeEventListener('resize', onResize);
@@ -1420,9 +1422,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
         setReduced(prefersReduced);
         let particleTimer = 0;
         if (canvas && root && !prefersReduced) {
-          particleTimer = window.setTimeout(() => {
-            particlesRef.current = drawParticles(canvas, root);
-          }, 900);
+          particlesRef.current = drawParticles(canvas, root);
         }
 
         const play = () => {
