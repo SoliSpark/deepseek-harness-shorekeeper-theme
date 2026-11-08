@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-shorekeeper-startup",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "守岸人主题：逐笔绘制的线稿启动动画 + 可替换图片/视频的全屏背景，侧边栏内可调节界面透明度。",
   "type": "module",

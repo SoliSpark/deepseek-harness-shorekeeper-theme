@@ -1,112 +1,139 @@
 DeepSeek Harness · 守岸人主题（Shorekeeper Theme）
-版本 1.2.0 · 适用 DSH 0.2.1-rc.2（Windows 桌面版）
+版本 1.2.1 · 适用 DSH 0.2.1-rc.2（Windows 桌面版）
 
 ============================================================
-一、这个文件夹是什么
+本次更新（1.2.1）
 ============================================================
-一个 DSH（DeepSeek Harness）客户端插件，包含：
-  · 启动动画：线稿逐笔绘制 → 睁眼 → 文字/标识动画 → 粒子消散过渡
-  · 主题背景：默认使用启动动画做成的无缝循环，也可换成自己的图片/视频
-  · 侧栏面板：调节界面透明度、背景压暗、背景模糊，重播启动动画
-插件运行时不需要联网，影片/线稿/标识都已内嵌在 client.js 里。
+· 舞台幕布：DSH 加载界面正常显示，启动动画期间工作台被幕布遮住，
+  片尾自动淡出，开场/收尾不再闪现聊天界面。
+· 片尾交叉淡化：影片缓慢淡出、粒子淡入、标题下沉，过渡更自然。
+· 界面质感：标题栏玻璃、内容面更易读、液态“新会话”按钮、
+  输入区清理、引导卡/代码块/轨迹页/蓝色强调色与平台页外壳优化。
+· 线稿改为 Canvas 逐笔绘制（406 条笔画），启动更顺滑。
 
 ============================================================
-二、应该安装在哪里
+一、这是什么
 ============================================================
-1) 插件本体：建议放在一个固定的目录，例如
+这是一个给 DSH（DeepSeek Harness）使用的“主题插件”，装上之后：
+
+· 启动 DSH 时，先播放守岸人开场动画：
+  线稿一笔一笔画出闭眼的画面 → 睁眼 → DeepSeek 字样与「欢迎回来，漂泊者」
+  → 黑海岸标识拼合 → 画面像粒子一样消散，再聚合成聊天界面。
+· 聊天界面的背景使用同一段动画做成的无缝循环（6–10 秒），
+  也可以换成你自己的图片或视频。
+· 左侧栏多一个「守岸人主题」入口，可以调节界面透明度、背景压暗、背景模糊，
+  也可以重播启动动画。
+· 所有设置都会自动保存，下次打开还在。
+
+插件完全在本机运行，不需要联网，不需要额外的账号或 Key，
+启动影片、线稿、标识都已经打包在插件里。
+
+============================================================
+二、安装到哪里
+============================================================
+1) 插件本体：
+   建议把整个文件夹放到一个固定位置，例如：
      D:\DeepSeek Harness\plugins\deepseek-harness-shorekeeper-theme
-   不要放进 C:\Users\<你>\.dsh 里面（那是 DSH 的配置目录，清理/升级时容易丢）。
-   放好后不要再移动；如果移动了，需要重新执行下面的 add 命令。
+   放好之后不要再移动。移动了要重新执行下面的安装命令。
 
-2) 安装目标（DSH 的 desktop profile）：
-     C:\Users\<你>\.dsh\profiles\desktop
-   这个目录由 DSH 自己创建，目录里的 package.json 记录插件依赖和启用列表。
+2) 安装目标（DSH 的 desktop 配置）：
+     C:\Users\<你的用户名>\.dsh\profiles\desktop
+   这个目录由 DSH 自己管理，里面有一个 package.json 记录已安装的插件。
 
 ============================================================
-三、安装步骤
+三、安装步骤（只需要做一次）
 ============================================================
-步骤 1：把整个文件夹放到上面建议的位置（路径按你的实际情况改）。
-        路径中不要有特殊字符；中文路径一般也可以。
+第 1 步：把整个文件夹放到上面建议的位置（路径可以自己改，但不要有特殊符号）。
 
-步骤 2：打开 PowerShell，执行（二选一）：
+第 2 步：打开 PowerShell，执行下面这一行（路径按你的实际位置改）：
 
-  A. 用 DSH 桌面版自带的命令行（推荐，适合 dsh 不在 PATH 的情况）：
-     & "D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "link:D:\DeepSeek Harness\plugins\deepseek-harness-shorekeeper-theme"
+  & "D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "link:D:\DeepSeek Harness\plugins\deepseek-harness-shorekeeper-theme"
 
-  B. 如果 dsh 已经在 PATH 里：
-     dsh plugin --profile desktop add "link:D:\DeepSeek Harness\plugins\deepseek-harness-shorekeeper-theme"
+  如果提示找不到 dsh.cmd，就把引号里的路径换成你电脑上 DSH 的安装位置。
 
-  说明：link: 后面的路径必须是这个文件夹的完整路径。
-  成功时最后会显示：
-     + @local/dsh-shorekeeper-startup 1.2.0 <- D:\...\deepseek-harness-shorekeeper-theme
-
-步骤 3：确认已启用为 bundle。
+第 3 步：确认插件被启用。
   用记事本打开：
-     C:\Users\<你>\.dsh\profiles\desktop\package.json
-  应能看到类似：
-     "dependencies": {
-       "@local/dsh-shorekeeper-startup": "link:D:/.../deepseek-harness-shorekeeper-theme"
-     },
-     "dsh": { "profile": { "bundles": [
-       "@deepseek-ai/dsh-base",
-       "@deepseek-ai/dsh-web-app",
-       "@local/dsh-shorekeeper-startup"
-     ] } }
-  如果 bundles 里没有 "@local/dsh-shorekeeper-startup"，手动补一行（注意 JSON 逗号），然后保存。
+     C:\Users\<你的用户名>\.dsh\profiles\desktop\package.json
+  找到 "dsh" → "profile" → "bundles" 这一段，里面应该有：
+     "@local/dsh-shorekeeper-startup"
+  如果没有，手动加一行（注意前后的逗号），保存。
 
-步骤 4：完全退出 DSH。
-  窗口关闭不够：请从系统托盘退出，确认进程结束后再重新打开 DSH。
+第 4 步：完全退出 DSH。
+  只关窗口不够，请从系统托盘退出（或任务管理器结束 DSH），然后再打开。
 
 ============================================================
-四、安装成功的表现
+四、怎么使用
 ============================================================
-  · 启动时全屏播放「线稿 → 睁眼 → 文字/标识」动画，ESC 或点击可跳过；约 9 秒。
-  · 左侧栏多出「DeepSeek Harness · 守岸人主题」入口（黑海岸徽记图标）。
-  · 点开后可切换背景（启动动画 / 图片 / 视频）、拖动透明度/压暗/模糊滑杆、重播动画。
-  · 设置自动保存在本机，刷新或重启后保留。
+· 启动动画：每次打开 DSH 自动播放；按 ESC、点击画面或点「跳过」可以立刻结束。
+· 打开主题设置：左侧栏点击「守岸人主题」。
+  - 背景：启动动画 / 图片 / 视频（支持拖入文件，文件只保存在本机）
+  - 显示：界面透明度、背景压暗、背景模糊
+  - 启动动画：开关“每次启动播放”，或手动“重播启动动画”
+· 关闭主题：设置页里的总开关关掉，就会恢复 DSH 原本的外观。
+· 想临时看聊天：按 ESC 跳过动画即可。
+
+小提示：
+· 第一次启动时，动画前面会有一小段纯黑画面（这是插件的“预启动遮罩”，
+  用来挡住 DSH 自己的加载界面），属于正常现象。
+· 右上角的最小化/最大化/关闭按钮是 Windows 原生按钮，网页层盖不住，
+  动画播放时它们仍会显示在最上层。
 
 ============================================================
 五、卸载
 ============================================================
-1) 执行：
+1) 打开 PowerShell 执行：
    & "D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop remove @local/dsh-shorekeeper-startup
-2) 打开 C:\Users\<你>\.dsh\profiles\desktop\package.json，
+
+2) 打开 C:\Users\<你的用户名>\.dsh\profiles\desktop\package.json，
    把 bundles 里的 "@local/dsh-shorekeeper-startup" 删掉。
-3) 重启 DSH。之后即可删除插件文件夹。
+
+3) 重启 DSH，之后就可以删除插件文件夹了。
 
 ============================================================
 六、常见问题
 ============================================================
-· 启动后仍是原生界面：检查 package.json 的 bundles 是否包含该插件；
-  再确认是否完全退出并重启了 DSH。
-· 左侧栏没有入口：插件未加载。用上面的 remove 命令移除后重新 add。
-· 想换素材后重新构建：需要 Node.js（DSH 自带即可），在插件目录运行：
+· 打开后还是原来的界面？
+  说明插件没加载：检查 package.json 的 bundles 里有没有这个插件；
+  再确认是不是从托盘完全退出后重启的。
+
+· 左侧栏没有「守岸人主题」？
+  先执行上面的 remove 命令，再按新路径重新 add 一次。
+
+· 启动动画期间看不到工作台？
+  这是舞台幕布，用来避免聊天界面在动画前后闪现；片尾或按 ESC 后会淡出。
+
+· 想换素材重新生成？
+  需要 Node.js。替换 assets 里的影片/标识后，在插件目录执行：
      node build.mjs
-  会重新把 assets 里的影片/线稿/标识内嵌到 client.js。
-· 移动了插件文件夹：旧的 link 路径失效，先 remove 再按新路径 add。
-· 动画在部分机器上偏慢：可在 client.template.js 顶部调整 RATE（播放倍速）
-  与 CUT_AT / OUT_AT（睁眼与退场时间），改完重新 build。
+  就会重新生成 client.js。
+
+· 移动了插件文件夹？
+  旧的链接会失效：先 remove，再按新路径 add。
+
+· 动画速度想调？
+  需要改 client.template.js 顶部的 RATE（整体速度）与 CUT_AT / OUT_AT
+  （睁眼与退场时间），改完重新 build。普通使用不需要动。
 
 ============================================================
 七、文件清单
 ============================================================
-  client.js              构建产物（约 4 MB，内嵌全部素材）
-  client.template.js     源码（React.createElement）
-  build.mjs              构建脚本
-  index.js               Host 侧入口（空实现）
-  package.json           插件清单
-  cordis.patch.yml       插入 shorekeeper-startup 行
+  client.js              构建产物（约 4 MB，所有素材都打包在里面）
+  client.template.js     源码
+  build.mjs              重新构建用
+  index.js               Host 侧占位入口（无运行逻辑）
+  package.json           插件信息
+  cordis.patch.yml       插件挂载配置
   icon.svg               插件图标
-  locale/                插件管理页的中英文名称与描述
-  assets/startup.mp4     启动影片
-  assets/loop.mp4        无缝循环背景
-  assets/sketch_paths.json  443 条线稿笔画与绘制时序
-  assets/logo.svg / logo_parts.json  黑海岸标识及 24 个部件
-  tools/                 线稿矢量化与标识拆分脚本（重新生成素材用）
-  README.md              更详细的效果与构建说明
+  locale\                插件管理页的中英文名称
+  assets\startup.mp4     启动影片
+  assets\loop.mp4        无缝循环背景
+  assets\sketch_paths.json  线稿笔画数据
+  assets\logo.svg、logo_parts.json  黑海岸标识
+  tools\                 重新生成线稿/标识的脚本（进阶用）
+  README.md              更详细的效果说明
 
 ============================================================
 八、版权说明
 ============================================================
-影片与标识素材来自《鸣潮》（库洛游戏）。插件仅供本地个性化使用，
-请勿重新分发内置的影片/标识素材。
+影片与标识素材来自《鸣潮》（库洛游戏）。本插件仅供你本地个性化使用，
+请不要把内置的影片/标识素材重新上传或分发给其他人。
