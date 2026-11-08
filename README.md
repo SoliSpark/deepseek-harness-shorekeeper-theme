@@ -67,19 +67,6 @@ node build.mjs
 | `tools/vectorize.py` / `split_logo.py` | 线稿矢量化与标识拆分脚本 |
 | `locale/*.json`、`icon.svg` | 插件管理页的标题、描述与图标 |
 
-## 沉浸式玻璃质感打磨（本分支）
-
-本分支在不改动 DeepSeek Harness 本体与启动影片素材的前提下，对主题做了一轮视觉打磨：
-开屏衔接（影片淡出与粒子淡入交叉、片尾文字下沉）、背景层级、内容面透明度、
-输入区与「新会话」按钮的液态玻璃、引导卡 hover 统一、代码块与内联代码底色、
-代码块 sticky 标志栏不透明、轨迹页透明化、蓝色强调色对比度、右侧栏材质、
-以及平台页（充值/查询用量）外壳配色。
-
-完整改动清单、实现方式、兼容性与回滚说明见 [`docs/THEME-POLISH.md`](docs/THEME-POLISH.md)，
-效果截图见 [`docs/previews/`](docs/previews/)。
-
-无 `assets/` 时可用 `node build-from-bundle.mjs` 从已有 `client.js` 提取内嵌素材重建。
-
 ## 素材
 
 影片与标识来自用户提供的《鸣潮》素材。角色与影像版权归库洛游戏所有，本插件仅作本地个性化使用，不再分发这些素材。

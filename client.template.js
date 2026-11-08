@@ -275,50 +275,6 @@ window.__ModuleLoader__.load({
       window.setTimeout(() => { if (node.parentNode) node.parentNode.removeChild(node); }, 480);
     }
 
-    // ------------------------------------------------------- splash stage gate
-
-    /* The workbench keeps booting behind the film, but stays invisible: this
-       opaque curtain sits directly under the splash (and above every other
-       layer, including the desktop menu strip) so no workbench frame can leak
-       through the intro fade or the outro dissolve. It fades away only after
-       the whole film has finished and is then removed. */
-    let stageCurtain = null;
-    let stageTimer = 0;
-    let stageRemovalTimer = 0;
-
-    function ensureStageCurtain() {
-      if (stageCurtain && stageCurtain.isConnected) return stageCurtain;
-      const curtain = document.createElement('div');
-      curtain.className = 'dshsk-stage-curtain';
-      curtain.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(curtain);
-      stageCurtain = curtain;
-      return curtain;
-    }
-
-    function beginSplashStage() {
-      if (!document.body) return;
-      const curtain = ensureStageCurtain();
-      curtain.classList.remove('is-out');
-      if (stageRemovalTimer) { window.clearTimeout(stageRemovalTimer); stageRemovalTimer = 0; }
-      if (stageTimer) window.clearTimeout(stageTimer);
-      /* Safety net: never keep the workbench hidden if the film never ends. */
-      stageTimer = window.setTimeout(endSplashStage, 18000);
-    }
-
-    function endSplashStage() {
-      if (stageTimer) { window.clearTimeout(stageTimer); stageTimer = 0; }
-      const curtain = stageCurtain;
-      if (!curtain) return;
-      curtain.classList.add('is-out');
-      if (stageRemovalTimer) window.clearTimeout(stageRemovalTimer);
-      stageRemovalTimer = window.setTimeout(() => {
-        stageRemovalTimer = 0;
-        if (curtain.parentNode) curtain.parentNode.removeChild(curtain);
-        if (stageCurtain === curtain) stageCurtain = null;
-      }, 900);
-    }
-
     // ---------------------------------------------------------- theme tokens
 
     let themeService = null;
@@ -334,158 +290,22 @@ window.__ModuleLoader__.load({
       tokenDispose = themeService.overrideTokens('dsh-shorekeeper-theme', {
         '--dsw-alias-bg-base': { light: light(a + 0.06), dark: dark(a) },
         '--dsw-specific-sidebar-fill': { light: light(a + 0.08), dark: dark(a + 0.05) },
-        /* Content surfaces (composer, cards, hover previews) are opaque in DSH's
-           own design. Keep them a touch of glass so they do not glare as flat
-           white, but keep enough body that text behind stays unreadable. */
-        '--dsw-specific-input-major': { light: light(0.88), dark: dark(0.82) },
-        '--dsw-alias-bg-layer-1': { light: light(0.92), dark: dark(0.87) },
-        /* The rest of DSH's "white" surfaces (menus, settings cards, floating
-           buttons, sheets) get the same glass treatment so no single patch of
-           the UI stays a flat opaque white next to the translucent panels. */
-        '--dsw-alias-bg-layer-2': { light: light(0.94), dark: dark(0.9) },
-        '--dsw-alias-bg-layer-3': { light: light(0.94), dark: dark(0.9) },
-        '--dsw-alias-bg-overlay': { light: light(0.92), dark: dark(0.88) },
-        '--dsw-alias-bg-module-platform': { light: light(0.9), dark: dark(0.86) },
-        '--dsw-alias-bg-document-preview': { light: light(0.94), dark: dark(0.9) },
-        '--dsw-alias-button-elevated-fill': { light: light(0.9), dark: dark(0.88) },
-        '--dsw-alias-button-floating-fill': { light: light(0.9), dark: dark(0.88) },
-        '--dsw-menu-surface-fill': { light: light(0.9), dark: dark(0.88) },
-        /* Markdown code surfaces: DSH paints them with solid whites (code block,
-           its banner, inline code chips, citations). Over glass those read as
-           bright patches, so keep a light tint of the theme background instead. */
-        '--dsw-alias-markdown-code-block': { light: light(0.42), dark: dark(0.38) },
-        '--dsw-alias-markdown-code-block-banner': { light: light(0.52), dark: dark(0.46) },
-        '--dsw-alias-markdown-inline-code': { light: light(0.38), dark: dark(0.34) },
-        '--dsw-alias-markdown-citation': { light: light(0.48), dark: dark(0.42) },
-        '--dsw-alias-markdown-code-segment-selected': { light: light(0.45), dark: dark(0.4) },
-        '--dsw-alias-markdown-code-segment-unselected': { light: light(0.32), dark: dark(0.28) },
-        /* Blue accent text (view tabs, links, file chips, "open repo" links) is
-           the DSH accent blue; over the translucent panels its stock #4176e6
-           loses contrast. Darken it in light mode / lighten it in dark mode.
-           The composer keeps the stock accent (reset below). */
-        '--dsw-alias-link': { light: '#1c3fbf', dark: '#a3c4ff' },
-        '--dsw-alias-state-business-primary': { light: '#1c3fbf', dark: '#a3c4ff' },
-        '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#1c3fbf', dark: '#a3c4ff' },
+        '--dsw-specific-input-major': { light: light(a + 0.12), dark: dark(a + 0.08) },
+        '--dsw-alias-bg-layer-1': { light: light(a + 0.2), dark: dark(a + 0.15) },
       });
     }
 
     function syncDocument() {
       const html = document.documentElement;
-      if (settings.enabled) {
-        html.classList.add(DOC_CLASS);
-      } else {
-        html.classList.remove(DOC_CLASS);
-      }
-    }
-
-    /* ------------------------------------------------------ liquid chrome bits
-       Two things DSH styles for an opaque shell that need a hand over glass:
-       1. the sidebar's primary "new session" button (tag it, then CSS does the
-          liquid-glass look);
-       2. the full-width composer seat, which some shells leave with a frosted
-          backdrop that reads as a blur band around the input.
-       Both are re-checked on a slow interval because the shell can re-render. */
-
-    let chromeTimer = 0;
-    const liquidButtons = new Set();
-
-    function tagLiquidButtons() {
-      if (!settings.enabled) return;
-      /* The sidebar's new-session control is a CSS-module class ending in
-         `_newSession` (e.g. wtg9ga_newSession); tag its root element so the
-         liquid-glass rules apply without depending on the hash prefix. */
-      const byClass = document.querySelectorAll('[class*="_newSession"]');
-      for (const el of byClass) {
-        let match = false;
-        for (const token of el.classList) {
-          if (token === 'newSession' || /_newSession$/.test(token)) { match = true; break; }
-        }
-        if (!match) continue;
-        if (el.classList.contains('dshsk-liquid')) continue;
-        el.classList.add('dshsk-liquid');
-        liquidButtons.add(el);
-      }
-      /* Fallback for shells that label the control as a plain button. */
-      const candidates = document.querySelectorAll('button, [role="button"], a');
-      for (const el of candidates) {
-        const text = String(el.textContent || '').trim();
-        if (text !== '新会话' && text !== 'New Session') continue;
-        if (el.classList.contains('dshsk-liquid')) continue;
-        el.classList.add('dshsk-liquid');
-        liquidButtons.add(el);
-      }
-    }
-
-    const seatBlurInlines = new Map();
-
-    function clearComposerSeatBlur() {
-      if (!settings.enabled) return;
-      const seats = document.querySelectorAll('[class*="_composerSeat"]');
-      for (const seat of seats) {
-        if (!seatBlurInlines.has(seat)) {
-          seatBlurInlines.set(seat, {
-            background: seat.style.getPropertyValue('background'),
-            backgroundColor: seat.style.getPropertyValue('background-color'),
-            backgroundImage: seat.style.getPropertyValue('background-image'),
-            webkitBackdropFilter: seat.style.getPropertyValue('-webkit-backdrop-filter'),
-            backdropFilter: seat.style.getPropertyValue('backdrop-filter'),
-          });
-        }
-        seat.style.setProperty('background', 'none', 'important');
-        seat.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
-        seat.style.setProperty('backdrop-filter', 'none', 'important');
-      }
-    }
-
-    function restoreComposerSeatBlur() {
-      for (const seat of Array.from(seatBlurInlines.keys())) {
-        if (!seat.isConnected) { seatBlurInlines.delete(seat); continue; }
-        const saved = seatBlurInlines.get(seat);
-        if (saved.background) seat.style.setProperty('background', saved.background);
-        else {
-          if (saved.backgroundColor) seat.style.setProperty('background-color', saved.backgroundColor);
-          else seat.style.removeProperty('background-color');
-          if (saved.backgroundImage) seat.style.setProperty('background-image', saved.backgroundImage);
-          else seat.style.removeProperty('background-image');
-        }
-        if (saved.webkitBackdropFilter) seat.style.setProperty('-webkit-backdrop-filter', saved.webkitBackdropFilter);
-        else seat.style.removeProperty('-webkit-backdrop-filter');
-        if (saved.backdropFilter) seat.style.setProperty('backdrop-filter', saved.backdropFilter);
-        else seat.style.removeProperty('backdrop-filter');
-        seatBlurInlines.delete(seat);
-      }
-    }
-
-    function chromeTick() {
-      try {
-        tagLiquidButtons();
-        clearComposerSeatBlur();
-      } catch (error) { /* ignore */ }
-    }
-
-    function startChromeBits() {
-      if (chromeTimer) return;
-      chromeTick();
-      chromeTimer = window.setInterval(chromeTick, 1200);
-    }
-
-    function stopChromeBits() {
-      if (chromeTimer) { window.clearInterval(chromeTimer); chromeTimer = 0; }
-      restoreComposerSeatBlur();
-      for (const el of liquidButtons) {
-        if (el && el.classList) el.classList.remove('dshsk-liquid');
-      }
-      liquidButtons.clear();
+      if (settings.enabled) html.classList.add(DOC_CLASS);
+      else html.classList.remove(DOC_CLASS);
     }
 
     function syncVisuals() {
       syncDocument();
       applyTokens();
       renderBackdrop();
-      if (settings.enabled) startChromeBits();
-      else stopChromeBits();
     }
-
 
     // ---------------------------------------------------------------- splash
 
@@ -498,7 +318,6 @@ window.__ModuleLoader__.load({
       return () => splashListeners.delete(listener);
     }
     function replaySplash() {
-      beginSplashStage();
       splashNonce += 1;
       for (const listener of [...splashListeners]) {
         try { listener(); } catch (error) { /* ignore */ }
@@ -518,42 +337,22 @@ window.__ModuleLoader__.load({
   animation: dshsk-root-in 700ms ease both;
 }
 .dshsk-inner { position: absolute; inset: 0; transition: opacity 380ms ease; }
-.dshsk-root[data-closing="true"]:not([data-outro="true"]) .dshsk-inner { opacity: 0; }
-/* Outro hand-off: the headline sinks down and dissolves while the particle canvas
-   blooms in, instead of the whole text block blinking out at once. */
-.dshsk-root[data-outro="true"] .dshsk-copy {
-  animation: dshsk-copy-sink 900ms cubic-bezier(.4, 0, .7, 1) 60ms both;
-}
+.dshsk-root[data-closing="true"] .dshsk-inner { opacity: 0; }
 .dshsk-root[data-closing="true"] { pointer-events: none; }
 .dshsk-root[data-closing="true"]:not([data-outro="true"]) {
   opacity: 0;
   transition: opacity 620ms ease;
 }
-.dshsk-dissolve {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
+.dshsk-dissolve { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
 .dshsk-root[data-outro="true"] .dshsk-dissolve { opacity: 1; }
 .dshsk-root[data-outro="true"] { background: transparent; }
-/* Cross-fade the ending: the last frame stays on screen while the particle
-   canvas blooms in on top of it, then the frame dissolves underneath. The
-   sketch/scan overlays can drop quickly; only the film itself needs the slow
-   hand-off so nothing "snaps" into particles. */
+.dshsk-root[data-outro="true"] .dshsk-media,
 .dshsk-root[data-outro="true"] .dshsk-sketch-wrap,
 .dshsk-root[data-outro="true"] .dshsk-tint,
 .dshsk-root[data-outro="true"] .dshsk-flash,
 .dshsk-root[data-outro="true"] .dshsk-scan,
 .dshsk-root[data-outro="true"] .dshsk-particles,
-.dshsk-root[data-outro="true"] .dshsk-brackets { opacity: 0; transition: opacity 240ms ease; }
-.dshsk-root[data-outro="true"] .dshsk-media {
-  opacity: 0;
-  transition: opacity 1500ms cubic-bezier(.4, 0, .2, 1) 60ms;
-}
+.dshsk-root[data-outro="true"] .dshsk-brackets { opacity: 0; transition: opacity 180ms ease; }
 
 .dshsk-media { position: absolute; inset: 0; overflow: hidden; background: #02040a; }
 .dshsk-video {
@@ -900,10 +699,6 @@ window.__ModuleLoader__.load({
 @keyframes dshsk-bracket-in { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: scale(1); } }
 @keyframes dshsk-rise-in { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
 @keyframes dshsk-sink-out { from { opacity: 1; } to { opacity: 0; transform: translateY(26px); } }
-@keyframes dshsk-copy-sink {
-  from { opacity: 1; transform: translateY(0); filter: blur(0); }
-  to { opacity: 0; transform: translateY(64px); filter: blur(3px); }
-}
 @keyframes dshsk-fly-in { from { opacity: 0; transform: translateX(64px); } to { opacity: 1; transform: none; } }
 @keyframes dshsk-push-in {
   0% { opacity: 0; transform: translateX(70px); filter: blur(4px); }
@@ -916,10 +711,9 @@ window.__ModuleLoader__.load({
 `;
 
     const PAGE_CSS = `
-html.${DOC_CLASS} { background: #05080f !important; }
-html.${DOC_CLASS} body { background: transparent !important; }
-html.${DOC_CLASS} #root { position: relative; background: transparent !important; }
-.dshsk-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: #05080f; }
+html.${DOC_CLASS}, html.${DOC_CLASS} body { background: #05080f !important; }
+html.${DOC_CLASS} #root { position: relative; z-index: 1; background: transparent !important; }
+.dshsk-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #05080f; }
 .dshsk-bg-frame { position: absolute; inset: -3%; width: 106%; height: 106%; will-change: filter; }
 .dshsk-bg-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 42%; }
 .dshsk-bg-scrim { position: absolute; inset: 0; background: #04070d; opacity: .45; }
@@ -928,67 +722,6 @@ html.${DOC_CLASS} #root { position: relative; background: transparent !important
   background:
     radial-gradient(120% 100% at 50% 40%, rgba(3,6,11,0) 40%, rgba(3,6,11,.55) 100%),
     linear-gradient(180deg, rgba(3,6,11,.45), rgba(3,6,11,0) 26%, rgba(3,6,11,0) 72%, rgba(3,6,11,.5));
-}
-/* right-sidebar guide cards: keep DSH native fills (same as the "more tools"
-   card); only neutralise the inner ghost button of the terminal card so its
-   hover is drawn by the outer entry, exactly like every other card. */
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button,
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:hover,
-html.${DOC_CLASS} [data-sidebar-right-guide-entry] button:focus-visible {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* code-block sticky banner: give the label bar an opaque glass fill so the
-   code text scrolling underneath no longer shows through it. */
-html.${DOC_CLASS} [class*="_bannerWrap_"] {
-  background-color: rgba(248, 251, 255, 0.92) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  backdrop-filter: blur(14px) saturate(1.1);
-}
-html.${DOC_CLASS}:has(body[data-ds-dark-theme]) [class*="_bannerWrap_"] {
-  background-color: rgba(14, 19, 28, 0.92) !important;
-}
-/* platform pages (top-up / usage): the overlay is a portal over the app and its
-   translucent background lets the app chrome show through around the native web
-   view. Give it a paper surface so the 48px return bar reads as part of the page. */
-html.${DOC_CLASS} {
-  --dshsk-platform-paper: rgba(251, 252, 255, 0.985);
-}
-html.${DOC_CLASS}:has(body[data-ds-dark-theme]) {
-  --dshsk-platform-paper: #f7f9fc;
-}
-html.${DOC_CLASS} .MKE-pW_overlay {
-  background: var(--dshsk-platform-paper) !important;
-}
-html.${DOC_CLASS} .MKE-pW_header {
-  background: transparent !important;
-  border-bottom-color: rgba(15, 23, 42, 0.1) !important;
-}
-html.${DOC_CLASS} .MKE-pW_back,
-html.${DOC_CLASS} .MKE-pW_failure {
-  color: #3b4657 !important;
-}
-html.${DOC_CLASS} .MKE-pW_status {
-  background: transparent !important;
-}
-
-/* immersive top chrome: the Windows titlebar strip and the native caption
-   overlay both paint --dsw-specific-sidebar-fill, which hides the theme
-   backdrop. Let them be transparent so the animated background shows
-   through, while keeping the system buttons usable. */
-html.${DOC_CLASS}[data-windows-titlebar] .mP3x-q_frame:before {
-  background: var(--dsw-alias-bg-base) !important;
-}
-html.${DOC_CLASS} span[style*="--dsw-specific-sidebar-fill"] {
-  background-color: rgba(0, 0, 0, 0) !important;
-}
-
-/* every guide entry (including the terminal card, whose hover used to be
-   painted by its inner ghost button) shares the same hover fill token. */
-html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
-  background-color: var(--dsw-alias-interactive-bg-hover) !important;
 }
 .dshsk-boot-veil {
   position: fixed;
@@ -999,17 +732,6 @@ html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
   transition: opacity 420ms ease;
 }
 .dshsk-boot-veil.is-out { opacity: 0; pointer-events: none; }
-
-.dshsk-stage-curtain {
-  position: fixed;
-  inset: 0;
-  z-index: 2147482999;
-  background: #02040a;
-  opacity: 1;
-  transition: opacity 760ms ease;
-  pointer-events: none;
-}
-.dshsk-stage-curtain.is-out { opacity: 0; }
 
 .dshsk-page {
   height: 100%;
@@ -1102,150 +824,6 @@ html.${DOC_CLASS} [data-sidebar-right-guide-entry]:hover {
   .dshsk-row { flex-direction: column; align-items: flex-start; }
   .dshsk-row-control { width: 100%; }
   .dshsk-hero { flex-wrap: wrap; }
-}
-
-/* --- workbench polish: chrome continuity, bottom scrims, label contrast --- */
-
-/* The Windows shell rounds the centre column's top-left corner (16px). Over an
-   opaque theme the notch left by that corner is the same colour as the title
-   bar; over this translucent theme it shows the backdrop as a dark chip and the
-   rounded edge leaves a light antialias seam. Square that single corner while
-   the theme is on: the panel then meets the sidebar with no notch and no seam. */
-html.${DOC_CLASS}[data-windows-titlebar] [class$="_centerCol"] {
-  border-radius: 0 !important;
-}
-
-/* DSH fades scrolling content into an opaque panel colour. With a translucent
-   panel that overlay reads as a grey wash at the bottom of the sidebar and the
-   conversation. Drop the overlay and fade the content itself instead. */
-html.${DOC_CLASS} [class*="_fade"] { background-image: none !important; }
-html.${DOC_CLASS} [class*="_treeBody"] {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), rgba(0, 0, 0, 0));
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), rgba(0, 0, 0, 0));
-}
-html.${DOC_CLASS} [class*="_composerSeat"] { background-image: none !important; }
-html.${DOC_CLASS} [class*="_scrollBody"] > *:not([class*="_composerSeat"]) {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0, 0, 0, 0));
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0, 0, 0, 0));
-}
-
-/* The composer seat is a full-width sticky strip. Some shells (and older HMR
-   instances of this patch) leave a frosted backdrop on it, which reads as a
-   blurred band around and below the input card. Keep the strip completely
-   clear so the card floats directly on the theme. */
-html.${DOC_CLASS} [class*="_composerSeat"] {
-  background: none !important;
-  background-color: transparent !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-/* The chat input's own blue pieces (send button, model chip) keep DSH's stock
-   accent; the darker link/accent colours apply everywhere else. */
-html.${DOC_CLASS} [class*="_composerSeat"] {
-  --dsw-alias-link: var(--dsw-static-deepseek-500);
-  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-500);
-  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-static-deepseek-500);
-}
-html.${DOC_CLASS} body[data-ds-dark-theme] [class*="_composerSeat"] {
-  --dsw-alias-link: var(--dsw-static-deepseek-400);
-  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-400);
-  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dsw-static-deepseek-400);
-}
-
-/* Liquid-glass treatment for the sidebar's primary "new session" button: a
-   translucent white gradient, a real backdrop blur, an inner top highlight and
-   a soft drop shadow, so the button reads as a glass pill instead of flat white.
-   The rim is kept deliberately soft (no hard 1px white border) and the backdrop
-   blur is stronger than the fill, so the glass reads through refraction rather
-   than a bright edge. */
-html.${DOC_CLASS} .dshsk-liquid {
-  box-sizing: border-box !important;
-  position: relative !important;
-  background-color: transparent !important;
-  background-image:
-    radial-gradient(130% 150% at 16% -10%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0) 68%),
-    linear-gradient(162deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.06) 48%, rgba(255, 255, 255, 0.15) 100%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(2.2) brightness(1.05) contrast(1.04) !important;
-  backdrop-filter: blur(32px) saturate(2.2) brightness(1.05) contrast(1.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  box-shadow:
-    inset 0 1px 4px rgba(255, 255, 255, 0.26),
-    inset 0 -18px 26px rgba(255, 255, 255, 0.07),
-    0 6px 18px rgba(15, 23, 42, 0.1) !important;
-}
-html.${DOC_CLASS} .dshsk-liquid::after {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  border-radius: inherit !important;
-  pointer-events: none !important;
-  mix-blend-mode: screen !important;
-  background: linear-gradient(118deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 34%, rgba(198, 226, 255, 0.1) 62%, rgba(255, 255, 255, 0.18) 100%) !important;
-}
-html.${DOC_CLASS} body[data-ds-dark-theme] .dshsk-liquid {
-  background-image:
-    radial-gradient(130% 150% at 16% -10%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 44%, rgba(255, 255, 255, 0) 70%),
-    linear-gradient(162deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.01) 48%, rgba(255, 255, 255, 0.05) 100%) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  box-shadow:
-    inset 0 1px 4px rgba(255, 255, 255, 0.12),
-    inset 0 -18px 26px rgba(255, 255, 255, 0.02),
-    0 6px 18px rgba(0, 0, 0, 0.34) !important;
-}
-html.${DOC_CLASS} body[data-ds-dark-theme] .dshsk-liquid::after {
-  background: linear-gradient(118deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 36%, rgba(170, 205, 255, 0.05) 64%, rgba(255, 255, 255, 0.08) 100%) !important;
-}
-
-/* Trajectory view (工作面板「轨迹」页): DSH paints the view root, the sticky
-   toolbar, the table split and the timeline plot with --dsw-alias-bg-layer-1 /
-   layer-2 surfaces, which cover the animated backdrop and make this page look
-   flat. Let the same glass tint as the chat view show through instead. The
-   :has(> [role=toolbar]) guard keeps it scoped to the trajectory view only. */
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) {
-  background: transparent !important;
-}
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) > [role="toolbar"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_root"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_split"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_table"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_table"] th,
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_plot"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_historyLoadingBar"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_historyLoadButton"],
-html.${DOC_CLASS} [data-conversation-composer-overlay]:has(> [role="toolbar"]) [class$="_earlierHistory"] {
-  background-color: transparent !important;
-  background-image: none !important;
-}
-
-/* The composer floats above scrolled content. No frost and no scrim: the seat
-   stays transparent and the content itself fades out near the bottom of the
-   scroll body (the mask above), so a card that slides under it dissolves
-   gradually instead of sitting behind a band. */
-
-/* DSH's grey label steps assume opaque white/dark surfaces. Over glass they sit
-   within a few percent of the surface luminance, so strengthen the steps when
-   the theme is on (both light and dark). */
-html.${DOC_CLASS} body:not([data-ds-dark-theme]) {
-  --dsw-alias-label-secondary: color-mix(in srgb, #0f1115 82%, transparent);
-  --dsw-alias-label-tertiary: color-mix(in srgb, #0f1115 70%, transparent);
-  --dsw-alias-label-caption: color-mix(in srgb, #0f1115 72%, transparent);
-  --dsw-alias-label-dimmed: color-mix(in srgb, #0f1115 62%, transparent);
-  --dsw-alias-markdown-placeholder: color-mix(in srgb, #0f1115 58%, transparent);
-}
-html.${DOC_CLASS} body[data-ds-dark-theme] {
-  --dsw-alias-label-secondary: color-mix(in srgb, #f9fafb 84%, transparent);
-  --dsw-alias-label-tertiary: color-mix(in srgb, #f9fafb 68%, transparent);
-  --dsw-alias-label-caption: color-mix(in srgb, #f9fafb 72%, transparent);
-  --dsw-alias-label-dimmed: color-mix(in srgb, #f9fafb 56%, transparent);
-  --dsw-alias-markdown-placeholder: color-mix(in srgb, #f9fafb 52%, transparent);
-}
-
-/* reasoning-band: the reasoning/tool disclosure header paints the panel glass a
-   second time once expanded (it becomes sticky), so it reads as a lighter band
-   on top of our translucent panel. Drop that extra layer so the row blends in. */
-html.${DOC_CLASS} [data-disclosure-header] {
-  background-color: transparent !important;
 }
 `;
 
@@ -1509,16 +1087,16 @@ html.${DOC_CLASS} [data-disclosure-header] {
             const dh = vh * scale;
             octx.drawImage(video, (sw - dw) / 2, (sh - dh) / 2, dw, dh);
             const data = octx.getImageData(0, 0, sw, sh).data;
-            for (let y = 0; y < sh; y += 2) {
-              for (let x = 0; x < sw; x += 2) {
-                if (Math.random() < 0.18) continue;
+            for (let y = 0; y < sh; y += 3) {
+              for (let x = 0; x < sw; x += 3) {
+                if (Math.random() < 0.28) continue;
                 const i = (y * sw + x) * 4;
                 const r = data[i], g = data[i + 1], b = data[i + 2];
                 if (r + g + b < 26) continue;
                 particles.push({
                   sx: x / sw * W,
                   sy: y / sh * H,
-                  size: 1.2 + Math.random() * 2.4,
+                  size: 1 + Math.random() * 2.2,
                   col: r + ',' + g + ',' + b,
                   delay: Math.random() * 0.16,
                   wobble: Math.random() * 6.283,
@@ -1544,16 +1122,11 @@ html.${DOC_CLASS} [data-disclosure-header] {
         const easeOut = (value) => 1 - Math.pow(1 - value, 3);
         const frame = () => {
           const t = (performance.now() - started) / 1000;
-          /* Bloom the whole field in so the frame's image dissolves into dots
-             instead of the dots appearing at full brightness at once. */
-          const bloomProgress = Math.min(1, t / 0.3);
-          const bloom = bloomProgress * bloomProgress * (3 - 2 * bloomProgress);
           ctx.clearRect(0, 0, W, H);
           ctx.globalCompositeOperation = 'lighter';
           for (const particle of particles) {
             const local = t - particle.delay;
             if (local <= 0) continue;
-            const rise = Math.min(1, local / 0.24);
             const scatter = easeOut(Math.min(1, local / 0.55));
             let x = particle.sx + particle.vx * scatter * 0.8 + Math.sin(local * 3.4 + particle.wobble) * 16 * scatter;
             let y = particle.sy + particle.vy * scatter * 0.8 + 30 * scatter * scatter;
@@ -1567,7 +1140,6 @@ html.${DOC_CLASS} [data-disclosure-header] {
             } else {
               alpha = 0.92 * (1 - Math.max(0, local - 0.42) * 0.5);
             }
-            alpha *= rise * bloom;
             if (alpha <= 0.01) continue;
             ctx.fillStyle = 'rgba(' + particle.col + ',' + alpha.toFixed(3) + ')';
             ctx.beginPath();
@@ -1685,22 +1257,10 @@ html.${DOC_CLASS} [data-disclosure-header] {
         setNonce(getSplashNonce());
         setVisible(true);
       }), []);
-      useEffect(() => {
-        if (!visible) return undefined;
-        return () => { endSplashStage(); };
-      }, [visible]);
       if (!visible) return null;
       /* The frame's overlay layer sits at z-index 20; the desktop menu strip
          lives at 1100 on <body>. A portal puts the film above both. */
-      return ReactDOM.createPortal(h(Splash, {
-        key: nonce,
-        onDone: () => {
-          /* The film (outro included) is over: fade out the curtain and let the
-             workbench appear from behind it, already fully booted. */
-          endSplashStage();
-          setVisible(false);
-        },
-      }), document.body);
+      return ReactDOM.createPortal(h(Splash, { key: nonce, onDone: () => setVisible(false) }), document.body);
     }
 
     function Row({ label, hint, children }) {
@@ -1875,28 +1435,8 @@ html.${DOC_CLASS} [data-disclosure-header] {
       inject: ['slots', 'theme', 'locale', 'layout'],
       apply(ctx) {
         themeService = ctx.theme;
-        /* Drop the development diagnostics left by earlier builds/patch installs. */
-        try {
-          window.localStorage.removeItem('dshsk.diag2');
-          window.localStorage.removeItem('dshsk.diag4');
-          window.localStorage.removeItem('dshsk.theme-fix1');
-        } catch (error) { /* ignore */ }
-
-        /* Hot reload can leave a previous instance's <style> and backdrop in the
-           document if that instance's teardown did not complete. Drop them first
-           so the rules below are the only ones in play. */
-        try {
-          const staleStyles = document.querySelectorAll('style[data-dsh-shorekeeper="theme"]');
-          for (const el of staleStyles) { if (el.parentNode) el.parentNode.removeChild(el); }
-        } catch (error) { /* ignore */ }
-        backdropHost = null;
-        backdropFrame = null;
-        backdropScrim = null;
-        backdropKey = '';
-        try {
-          const staleHosts = document.querySelectorAll('.dshsk-bg');
-          for (const el of staleHosts) { if (el.parentNode) el.parentNode.removeChild(el); }
-        } catch (error) { /* ignore */ }
+        /* Drop the development diagnostic left by earlier builds. */
+        try { window.localStorage.removeItem('dshsk.diag2'); } catch (error) { /* ignore */ }
 
         const css = document.createElement('style');
         css.setAttribute('data-dsh-shorekeeper', 'theme');
@@ -1936,16 +1476,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
         if (settings.splash) replaySplash();
 
 
-
         ctx.effect(() => () => {
-          stopChromeBits();
-          if (stageTimer) { window.clearTimeout(stageTimer); stageTimer = 0; }
-          if (stageRemovalTimer) { window.clearTimeout(stageRemovalTimer); stageRemovalTimer = 0; }
-          if (stageCurtain && stageCurtain.parentNode) stageCurtain.parentNode.removeChild(stageCurtain);
-          stageCurtain = null;
-          if (bootVeilTimer) { window.clearTimeout(bootVeilTimer); bootVeilTimer = 0; }
-          if (bootVeil && bootVeil.parentNode) bootVeil.parentNode.removeChild(bootVeil);
-          bootVeil = null;
           releaseMediaUrl();
           if (backdropHost && backdropHost.parentNode) backdropHost.parentNode.removeChild(backdropHost);
           backdropHost = null;
