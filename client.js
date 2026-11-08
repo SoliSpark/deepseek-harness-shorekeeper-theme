@@ -979,10 +979,10 @@ html.${DOC_CLASS} .MKE-pW_status {
    backdrop. Let them be transparent so the animated background shows
    through, while keeping the system buttons usable. */
 html.${DOC_CLASS}[data-windows-titlebar] .mP3x-q_frame:before {
-  background: transparent !important;
+  background: var(--dsw-alias-bg-base) !important;
 }
 html.${DOC_CLASS} span[style*="--dsw-specific-sidebar-fill"] {
-  background-color: rgba(16, 24, 40, 0.35) !important;
+  background-color: rgba(0, 0, 0, 0) !important;
 }
 
 /* every guide entry (including the terminal card, whose hover used to be

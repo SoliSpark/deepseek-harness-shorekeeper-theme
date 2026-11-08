@@ -20,7 +20,7 @@
 - 页面背景层下沉到 `z-index: -1`，`body` 透明、`#root` 不再自建层叠上下文。
   这样主题背景动画能透到所有半透明面板下面，同时也修复了 DSH 的 `position: fixed` 浮层
   （文件预览、菜单）被正文盖住的问题。
-- Windows 标题条 `.mP3x-q_frame:before` 的底色置空，让顶部 40px 标题条直接透出背景动画。
+- Windows 标题条 `.mP3x-q_frame:before` 改为与聊天区同款的玻璃材质（`--dsw-alias-bg-base`），顶部 40px 不再是单独的浅色条；同时把 preload 的 caption probe 填充改成完全透明，系统按钮（— □ ×）直接落在玻璃/背景上，不再有色块。
 
 ## 三、内容表面（可读性优先）
 
@@ -110,4 +110,4 @@
 | `guide-hover.png` | 引导卡 hover 统一 |
 | `code-banner.png` | 代码块 sticky 标志栏不再透字 |
 | `liquid-button.png` | 「新会话」按钮液态玻璃 |
-| `topbar-immersive.png` | Windows 顶部标题条透出背景动画（系统按钮区仍由 Electron 原生绘制） |
+| `topbar-immersive.png` | Windows 顶部标题条与聊天区同材质，系统按钮区完全透明沉浸 |
