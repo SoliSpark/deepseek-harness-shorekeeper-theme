@@ -554,6 +554,7 @@ window.__ModuleLoader__.load({
   animation: dshsk-drift 11s cubic-bezier(.2,.4,.3,1) both;
   will-change: transform, filter;
 }
+.dshsk-video { filter: contrast(1.12) saturate(1.08) brightness(1); }
 .dshsk-root[data-phase="awake"] .dshsk-video { filter: contrast(1.12) saturate(1.08) brightness(1); }
 
 .dshsk-sketch-wrap {
@@ -2019,6 +2020,12 @@ html.${DOC_CLASS} [data-disclosure-header] {
           en: { panel: 'Shorekeeper Theme' },
         }), 'shorekeeper: dictionaries');
         const t = ctx.locale.bind(NS);
+
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'shorekeeper.splash',
+          order: 40,
+        }, SplashHost));
 
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
