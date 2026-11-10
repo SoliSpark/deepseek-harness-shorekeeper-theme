@@ -1525,7 +1525,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
           polylineRange(stroke, from, to);
         };
 
-        const build = () => {
+        const setupCanvas = () => {
           W = canvas.clientWidth || window.innerWidth;
           H = canvas.clientHeight || window.innerHeight;
           const dpr = Math.min(window.devicePixelRatio || 1, 1.2);
@@ -1539,21 +1539,53 @@ html.${DOC_CLASS} [data-disclosure-header] {
           gradient.addColorStop(0, '#eafcff');
           gradient.addColorStop(0.45, '#8fe9ff');
           gradient.addColorStop(1, '#4f8cff');
-          strokes = SKETCH_PATHS.paths.map((path) => {
-            const pts = path.pts.map((pt) => [ox + pt[0] * scale, oy + pt[1] * scale]);
-            const segs = [];
-            for (let i = 1; i < pts.length; i += 1) {
-              const ax = pts[i - 1][0], ay = pts[i - 1][1];
-              const bx = pts[i][0], by = pts[i][1];
-              const length = Math.hypot(bx - ax, by - ay);
-              if (length > 0.01) segs.push([ax, ay, bx, by, length]);
-            }
-            return { segs, grow: path.len * scale, delay: path.delay, dur: path.dur, drawn: 0 };
-          });
           total = Math.max(...SKETCH_PATHS.paths.map((path) => path.delay + path.dur)) + 0.1;
           ctx.clearRect(0, 0, W, H);
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
+        };
+        const mapStroke = (path) => {
+          const pts = path.pts.map((pt) => [ox + pt[0] * scale, oy + pt[1] * scale]);
+          const segs = [];
+          for (let i = 1; i < pts.length; i += 1) {
+            const ax = pts[i - 1][0], ay = pts[i - 1][1];
+            const bx = pts[i][0], by = pts[i][1];
+            const length = Math.hypot(bx - ax, by - ay);
+            if (length > 0.01) segs.push([ax, ay, bx, by, length]);
+          }
+          return { segs, grow: path.len * scale, delay: path.delay, dur: path.dur, drawn: 0 };
+        };
+        const build = () => {
+          setupCanvas();
+          strokes = SKETCH_PATHS.paths.map(mapStroke);
+        };
+        let parseHandle = 0;
+        const cancelParse = () => {
+          if (!parseHandle) return;
+          try {
+            if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(parseHandle);
+            else window.clearTimeout(parseHandle);
+          } catch (error) { /* ignore */ }
+          parseHandle = 0;
+        };
+        const parsePathsBatched = (done) => {
+          setupCanvas();
+          strokes = [];
+          let index = 0;
+          const schedule = (fn) => (typeof window.requestIdleCallback === 'function'
+            ? window.requestIdleCallback(fn, { timeout: 120 })
+            : window.setTimeout(fn, 0));
+          const step = () => {
+            parseHandle = 0;
+            const end = Math.min(index + 32, SKETCH_PATHS.paths.length);
+            while (index < end) {
+              strokes.push(mapStroke(SKETCH_PATHS.paths[index]));
+              index += 1;
+            }
+            if (index < SKETCH_PATHS.paths.length) parseHandle = schedule(step);
+            else done();
+          };
+          parseHandle = schedule(step);
         };
 
         const advance = (time) => {
@@ -1592,30 +1624,34 @@ html.${DOC_CLASS} [data-disclosure-header] {
           ctx.globalAlpha = 1;
         };
 
-        build();
-        if (reduce) {
-          for (const stroke of strokes) {
-            paint(stroke, 0, stroke.grow);
-            stroke.drawn = stroke.grow;
-          }
-        } else {
-          const startLoop = () => {
-            let clock = -0.25;
-            let lastNow = 0;
-            const frame = () => {
-              const nowFrame = performance.now();
-              if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
-              lastNow = nowFrame;
-              advance(clock);
-              if (clock < total) raf = requestAnimationFrame(frame);
-            };
-            raf = requestAnimationFrame(frame);
+        let bootTimer = 0;
+        const startLoop = () => {
+          let clock = -0.25;
+          let lastNow = 0;
+          const frame = () => {
+            const nowFrame = performance.now();
+            if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
+            lastNow = nowFrame;
+            advance(clock);
+            if (clock < total) raf = requestAnimationFrame(frame);
           };
-          startLoop();
-        }
+          raf = requestAnimationFrame(frame);
+        };
+        const beginSketch = () => {
+          if (reduce) {
+            for (const stroke of strokes) {
+              paint(stroke, 0, stroke.grow);
+              stroke.drawn = stroke.grow;
+            }
+          } else {
+            startLoop();
+          }
+        };
+        bootTimer = window.setTimeout(() => { parsePathsBatched(beginSketch); }, 60);
 
         const onResize = () => {
           cancelAnimationFrame(raf);
+          cancelParse();
           build();
           started = 0;
           if (reduce) {
@@ -1638,6 +1674,8 @@ html.${DOC_CLASS} [data-disclosure-header] {
         };
         window.addEventListener('resize', onResize);
         return () => {
+          window.clearTimeout(bootTimer);
+          cancelParse();
           cancelAnimationFrame(raf);
           window.removeEventListener('resize', onResize);
         };
