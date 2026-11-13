@@ -18,9 +18,13 @@ const read = (name) => readFile(join(here, 'assets', name));
 const template = await readFile(join(here, 'client.template.js'), 'utf8');
 const film = await read('startup.mp4');
 const loop = await read('loop.mp4');
+const voice = await read('startup_voice.mp3');
 const sketch = JSON.parse((await read('sketch_paths.json')).toString('utf8'));
 const logoParts = JSON.parse((await read('logo_parts.json')).toString('utf8'));
-const pet = template.includes("'__DSHSK_PET__'") ? await read('pet.png') : null;
+const pet = await read('pet.png');
+const portrait = await read('portrait.webp');
+const face = await read('face.webp');
+const butterfly = await read('butterfly.webp');
 
 if (!Array.isArray(sketch.paths) || sketch.paths.length === 0) throw new Error('assets/sketch_paths.json has no paths');
 if (!Array.isArray(logoParts) || logoParts.length === 0) throw new Error('assets/logo_parts.json has no parts');
@@ -28,10 +32,18 @@ if (!Array.isArray(logoParts) || logoParts.length === 0) throw new Error('assets
 const replacements = [
   ["'__DSHSK_VIDEO__'", JSON.stringify('data:video/mp4;base64,' + film.toString('base64'))],
   ["'__DSHSK_LOOP__'", JSON.stringify('data:video/mp4;base64,' + loop.toString('base64'))],
+  ["'__DSHSK_VOICE__'", JSON.stringify('data:audio/mpeg;base64,' + voice.toString('base64'))],
   ['__DSHSK_PATHS__', JSON.stringify(sketch)],
   ['__DSHSK_LOGO_PARTS__', JSON.stringify(logoParts)],
-  ...(template.includes("'__DSHSK_PET__'")
-    ? [["'__DSHSK_PET__'", JSON.stringify('data:image/png;base64,' + pet.toString('base64'))]]
+  ["'__DSHSK_PET__'", JSON.stringify('data:image/png;base64,' + pet.toString('base64'))],
+  ...(template.includes("'__DSHSK_PORTRAIT__'")
+    ? [["'__DSHSK_PORTRAIT__'", JSON.stringify('data:image/webp;base64,' + portrait.toString('base64'))]]
+    : []),
+  ...(template.includes("'__DSHSK_FACE__'")
+    ? [["'__DSHSK_FACE__'", JSON.stringify('data:image/webp;base64,' + face.toString('base64'))]]
+    : []),
+  ...(template.includes("'__DSHSK_BUTTERFLY__'")
+    ? [["'__DSHSK_BUTTERFLY__'", JSON.stringify('data:image/webp;base64,' + butterfly.toString('base64'))]]
     : []),
 ];
 

@@ -1,0 +1,11 @@
+{
+  "endpoint": "http://127.0.0.1:9880",
+  "gptWeights": "GPT_weights_v2Pro/守岸人-e15.ckpt",
+  "sovitsWeights": "SoVITS_weights_v2Pro/守岸人_e8_s216.pth",
+  "refAudio": "D:/GPT-SoVITS-v2pro-20250604/GPT-SoVITS-v2pro-20250604/refs/守岸人语音参考.wav",
+  "promptText": "",
+  "promptLang": "zh",
+  "speed": 1,
+  "startBat": "D:/Users/Documents/deepseek-harness/default-workspace/_voice/启动语音API.bat",
+  "installDir": "D:/GPT-SoVITS-v2pro-20250604/GPT-SoVITS-v2pro-20250604"
+}

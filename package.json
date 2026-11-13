@@ -1,9 +1,8 @@
 {
   "name": "@local/dsh-shorekeeper-startup",
-  "license": "MIT",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
-  "description": "守岸人主题：逐笔绘制的线稿启动动画 + 可替换图片/视频的全屏背景，侧边栏内可调节界面透明度。",
+  "description": "守岸人主题与伴侣：逐笔线稿启动动画、全屏背景、桌宠、聊天终端、GPT-SoVITS 语音与音乐播放器。",
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -19,12 +18,21 @@
     "icon.svg",
     "build.mjs",
     "client.template.js",
+    "voicepack.json",
+    "README.md",
+    "安装说明.txt",
+    "使用说明.txt",
     "assets/startup.mp4",
     "assets/loop.mp4",
+    "assets/startup_voice.mp3",
     "assets/sketch_paths.json",
     "assets/logo.svg",
     "assets/logo_parts.json",
-    "README.md"
+    "assets/pet.png",
+    "assets/portrait.webp",
+    "assets/face.webp",
+    "assets/butterfly.webp",
+    "assets/default_track.m4a"
   ],
   "dsh": {
     "bundle": {

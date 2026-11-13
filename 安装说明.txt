@@ -1,0 +1,122 @@
+守岸人主题 + 伴侣 安装说明
+版本：1.2.2
+适用：DeepSeek Harness（DSH）桌面版
+
+========================================
+一、这个包是什么
+========================================
+本包同时包含两部分：
+1. 守岸人主题：启动动画（线稿睁眼）、全屏背景、主题设置页；
+2. 守岸人伴侣：桌宠、聊天终端、语音（TTS）、音乐播放器、记忆与角色卡。
+
+两部分共用同一个插件包（@local/dsh-shorekeeper-startup），安装一次即可。
+
+========================================
+二、安装前准备
+========================================
+- Windows 10/11；
+- 已安装并能正常启动 DSH 桌面版；
+- 解压到固定目录，例如：
+  D:\dsh-plugins\deepseek-harness-shorekeeper
+- 不要放在桌面或临时目录，避免被清理或路径变动导致插件失效；
+- 路径可以包含中文，但建议尽量简短。
+
+========================================
+三、手动安装
+========================================
+方法 A：命令行安装（推荐）
+1. 解压本包到固定目录；
+2. 打开 PowerShell；
+3. 执行（把 <解压目录> 换成实际路径）：
+   dsh plugin --profile desktop add "link:<解压目录>"
+   例如：
+   dsh plugin --profile desktop add "link:D:\dsh-plugins\deepseek-harness-shorekeeper"
+4. 完全退出 DSH（托盘退出），再重新打开。
+
+方法 B：手动编辑配置
+1. 打开文件：
+   %USERPROFILE%\.dsh\profiles\desktop\package.json
+2. 在 "dsh.profile.bundles" 数组中加入：
+   "@local/dsh-shorekeeper-startup"
+3. 在 "dependencies" 中加入（路径按实际解压位置）：
+   "@local/dsh-shorekeeper-startup": "link:D:/dsh-plugins/deepseek-harness-shorekeeper"
+4. 在以下目录创建指向解压目录的目录联接（junction）：
+   %USERPROFILE%\.dsh\profiles\desktop\node_modules\@local\dsh-shorekeeper-startup
+   管理员 PowerShell 执行：
+   New-Item -ItemType Junction -Path "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\@local\dsh-shorekeeper-startup" -Target "D:\dsh-plugins\deepseek-harness-shorekeeper"
+5. 完全退出并重新打开 DSH。
+
+安装成功的标志：
+- 启动时出现线稿睁眼动画；
+- 动画结束后，屏幕左下角出现桌宠；
+- 侧边栏出现「守岸人主题」入口。
+
+========================================
+四、每个文件的作用
+========================================
+client.js            构建产物。启动画面、线稿、标识、桌宠、提示音、默认音乐都已内嵌在此文件里，运行时不需要再读 assets。
+client.template.js   前端源码（React.createElement 写法，无 JSX）。修改界面/逻辑后用它重新构建。
+index.js             Host 端。提供聊天流、TTS 代理、音色检测/配置、文件选择、打开目录、默认音乐流、卸载接口。
+build.mjs            构建脚本。读取 assets 并生成 client.js。
+package.json         插件清单：名称、版本、DSH bundle 与 client 声明。
+cordis.patch.yml     DSH 插件注入声明。
+icon.svg             插件图标。
+locale/              中英文名称文案（zh.json / en.json）。
+voicepack.json       语音包配置：GPT-SoVITS 地址、权重、参考音频、启动脚本路径。
+assets/              原始素材目录（见下）。
+README.md            项目说明与更新记录。
+安装说明.txt          本文件。
+使用说明.txt          伴侣功能、TTS 用法与注意事项。
+
+========================================
+五、属于「启动动画 / 背景」的文件
+========================================
+assets/startup.mp4        启动影片：人物睁眼的完整片段（1600x900，H.264）。
+assets/loop.mp4           启动结束后的无缝循环背景（3.3 秒）。
+assets/sketch_paths.json  线稿的 406 条矢量路径、延迟与时长数据，用于逐笔绘制。
+assets/logo.svg           黑海岸标识原图。
+assets/logo_parts.json    标识拆解出的 24 个部件，用于拼装动画。
+assets/startup_voice.mp3  睁眼提示音（已做 +10 dB 增益，播放延迟 0.5 秒）。
+client.js                 上述素材最终都内嵌在这里。
+client.template.js        启动画面、幕布、背景、设置页的源码。
+build.mjs                 负责把上述素材打进 client.js。
+
+说明：assets 只用于“重新构建”。只想使用、不改代码时，即使没有 assets 也能正常运行，
+因为 client.js 已包含全部素材。
+
+========================================
+六、属于「伴侣」的文件
+========================================
+assets/pet.png            桌宠立绘（Q 版守岸人）。
+assets/portrait.webp      聊天头像 / 角色卡立绘。
+assets/face.webp          表情差分。
+assets/butterfly.webp     界面装饰（蝴蝶）。
+assets/default_track.m4a  默认音乐「漂泊的终点」。
+voicepack.json            GPT-SoVITS 语音包配置（权重、参考音频、启动脚本）。
+index.js                  伴侣的聊天、TTS、音色、音乐、卸载等 Host 路由。
+client.js                 伴侣的桌宠、终端、聊天、语音、音乐、设置页逻辑。
+
+提示：如果只想保留主题、不要伴侣，可以在设置页关闭「连接守岸人」，
+或在 client.template.js / build 流程中移除伴侣模块后重新构建。
+
+========================================
+七、卸载
+========================================
+方式一（推荐）：打开「守岸人主题」设置页，底部「卸载主题」→ 确认。
+- 会移除插件注册与链接；
+- 插件位于 _installed 目录时，会同时删除插件文件；
+- 工作区源码目录不会被删除，避免误删。
+- 卸载后需要完全重启 DSH。
+
+方式二（命令行）：
+dsh plugin --profile desktop remove @local/dsh-shorekeeper-startup
+
+========================================
+八、注意事项
+========================================
+1. voicepack.json 内是本机绝对路径（GPT-SoVITS 安装目录、参考音频）。
+   换电脑或分享给他人时，需要在「语音设置」里重新选择音色文件，或手动修改该文件。
+2. 语音功能要求 GPT-SoVITS 的 API 服务在本机运行（默认 127.0.0.1:9880）。
+3. 首次使用请在终端右键 → 语音设置中完成「环境检测 / 引擎连接 / 自定义音色」。
+4. 升级插件时，替换文件后需要完全重启 DSH。
+5. 主题与伴侣的设置、聊天记录保存在本机 localStorage，不会上传。
