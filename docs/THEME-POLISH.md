@@ -106,9 +106,7 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `splash-crossfade.png` | 开屏片尾：影片淡出与粒子淡入的交叉过程 |
 | `guide-hover.png` | 引导卡 hover 统一 |
-| `code-banner.png` | 代码块 sticky 标志栏不再透字 |
 | `liquid-button.png` | 「新会话」按钮液态玻璃 |
 | `topbar-immersive.png` | Windows 顶部标题条与聊天区同材质，系统按钮区完全透明沉浸 |
 
@@ -117,3 +115,4 @@
 - 现象：开屏「逐笔线稿」生长期间把窗口最大化/改变窗口尺寸，线稿会从第一笔重新生长；若此时影片已推进，出来的终帧会与线稿叠在一起，看起来像线条重叠。
 - 原因：`onResize` 直接 `cancelAnimationFrame` + `build()` 重建笔画并把时钟重置回 `-0.25`，因此从头开始重画；同时换了画布尺寸后旧进度丢失。
 - 修复：把生长时钟提升到 effect 作用域保存；尺寸变化时只重建几何（`setupCanvas` + `mapStroke`），再按当前时钟把已生长部分整段重绘（`paintProgress`），随后从原时钟继续动画；多次 resize 用 `requestAnimationFrame` 合并成一次处理。缩放不再重播线稿，终帧也不会残留半张线。
+> 注：`splash-crossfade.png` / `code-banner.png` 原截图包含会话界面与对话文字，已移除，避免把个人会话内容带进仓库。
