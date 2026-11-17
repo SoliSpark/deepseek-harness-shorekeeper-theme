@@ -106,8 +106,8 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `splash-crossfade.png` | 开屏片尾：影片淡出与粒子淡入的交叉过程 |
 | `guide-hover.png` | 引导卡 hover 统一 |
-| `code-banner.png` | 代码块 sticky 标志栏不再透字 |
 | `liquid-button.png` | 「新会话」按钮液态玻璃 |
 | `topbar-immersive.png` | Windows 顶部标题条与聊天区同材质，系统按钮区完全透明沉浸 |
+
+> 注：`splash-crossfade.png` / `code-banner.png` 原截图包含会话界面与对话文字，已移除，避免把个人会话内容带进仓库。
