@@ -1583,7 +1583,7 @@ html.${DOC_CLASS} [data-disclosure-header] {
               index += 1;
             }
             if (index < SKETCH_PATHS.paths.length) parseHandle = schedule(step);
-            else done();
+            else { built = true; done(); }
           };
           parseHandle = schedule(step);
         };
@@ -1625,21 +1625,61 @@ html.${DOC_CLASS} [data-disclosure-header] {
         };
 
         let bootTimer = 0;
+        let clock = -0.25;
+        let lastNow = 0;
+        let looping = false;
+        let built = false;
+
+        const stopLoop = () => {
+          looping = false;
+          lastNow = 0;
+          if (raf) cancelAnimationFrame(raf);
+          raf = 0;
+        };
+        const frame = () => {
+          const nowFrame = performance.now();
+          if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
+          lastNow = nowFrame;
+          advance(clock);
+          if (clock < total) {
+            raf = requestAnimationFrame(frame);
+          } else {
+            looping = false;
+            raf = 0;
+          }
+        };
         const startLoop = () => {
-          let clock = -0.25;
-          let lastNow = 0;
-          const frame = () => {
-            const nowFrame = performance.now();
-            if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
-            lastNow = nowFrame;
-            advance(clock);
-            if (clock < total) raf = requestAnimationFrame(frame);
-          };
+          if (looping || !built) return;
+          looping = true;
+          lastNow = 0;
           raf = requestAnimationFrame(frame);
         };
+        const buildAll = () => {
+          setupCanvas();
+          strokes = SKETCH_PATHS.paths.map(mapStroke);
+          built = true;
+        };
+        /*
+         * Repaint already-grown strokes at the current clock. After a resize the
+         * drawing continues from where it was instead of restarting, and no
+         * half-cleared layer is left behind (which read as overlapping lines).
+         */
+        const paintProgress = () => {
+          for (const stroke of strokes) {
+            const progress = Math.min(1, Math.max(0, (clock - stroke.delay) / stroke.dur));
+            const target = progress * stroke.grow;
+            stroke.drawn = 0;
+            if (target > 0) {
+              paint(stroke, 0, target);
+              stroke.drawn = target;
+            }
+          }
+        };
         const beginSketch = () => {
+          built = true;
           if (reduce) {
             for (const stroke of strokes) {
+              stroke.drawn = 0;
               paint(stroke, 0, stroke.grow);
               stroke.drawn = stroke.grow;
             }
@@ -1647,36 +1687,43 @@ html.${DOC_CLASS} [data-disclosure-header] {
             startLoop();
           }
         };
-        bootTimer = window.setTimeout(() => { parsePathsBatched(beginSketch); }, 60);
+        bootTimer = window.setTimeout(() => {
+          bootTimer = 0;
+          parsePathsBatched(beginSketch);
+        }, 60);
 
-        const onResize = () => {
-          cancelAnimationFrame(raf);
+        let resizeRaf = 0;
+        const handleResize = () => {
+          window.clearTimeout(bootTimer);
+          bootTimer = 0;
+          stopLoop();
           cancelParse();
-          build();
-          started = 0;
+          buildAll();
+          lastNow = 0;
           if (reduce) {
-            for (const stroke of strokes) { paint(stroke, 0, stroke.grow); stroke.drawn = stroke.grow; }
-          } else {
-            const startLoop = () => {
-              let clock = -0.25;
-              let lastNow = 0;
-              const frame = () => {
-                const nowFrame = performance.now();
-                if (lastNow !== 0) clock += Math.min(0.05, (nowFrame - lastNow) / 1000);
-                lastNow = nowFrame;
-                advance(clock);
-                if (clock < total) raf = requestAnimationFrame(frame);
-              };
-              raf = requestAnimationFrame(frame);
-            };
-            startLoop();
+            for (const stroke of strokes) {
+              stroke.drawn = 0;
+              paint(stroke, 0, stroke.grow);
+              stroke.drawn = stroke.grow;
+            }
+            return;
           }
+          paintProgress();
+          if (clock < total) startLoop();
+        };
+        const onResize = () => {
+          if (resizeRaf) return;
+          resizeRaf = requestAnimationFrame(() => {
+            resizeRaf = 0;
+            handleResize();
+          });
         };
         window.addEventListener('resize', onResize);
         return () => {
           window.clearTimeout(bootTimer);
           cancelParse();
-          cancelAnimationFrame(raf);
+          stopLoop();
+          if (resizeRaf) cancelAnimationFrame(resizeRaf);
           window.removeEventListener('resize', onResize);
         };
       }, []);
